@@ -10,13 +10,13 @@ class ServerClient:
         self.port = port
         self.addr = host + ":" + port
     
-    def infer(self, data: List[int]):
+    def infer(self, data: List[int]) -> float:
         payload = " ".join(map(str, data)) + "\nEOS\n"
         req = requests.post(f"http://{self.addr}", data=payload)
-        content = int(req.content.decode())
-        return content
+        req.raise_for_status()
+        return float(req.content.decode())
 
 
 client = ServerClient("localhost", "7878")
 
-print(client.infer([1, 2, 3]))
+print(client.infer([1, 2, 3, 4, 6]))
