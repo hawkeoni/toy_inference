@@ -37,18 +37,17 @@ pub mod server {
             let data = &http_request[http_request.len() - 1];
             let numbers: Vec<i32> = data.split(" ").map(|x| x.parse::<i32>().unwrap()).collect();
             let sum: i32 = numbers.iter().sum();
-            let response = format!("HTTP/1.1 200 OK\r\n\r\nhello_there sum is {}", sum);
+            let response = format!("HTTP/1.1 200 OK\r\n\r\n{}", sum);
             dbg!(http_request);
             stream.write_all(response.as_bytes());
         }
 
-    pub fn serve_forever(&self) {
-        println!("Start serving at {}:{}", self.addr, self.port);
-        for stream in self.listener.incoming() {
-            let stream = stream.unwrap();
-            self.handle_connection(stream);
+        pub fn serve_forever(&self) {
+            println!("Start serving at {}:{}", self.addr, self.port);
+            for stream in self.listener.incoming() {
+                let stream = stream.unwrap();
+                self.handle_connection(stream);
+            }
         }
     }
-}
-
 }
