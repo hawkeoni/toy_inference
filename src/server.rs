@@ -26,13 +26,20 @@ pub mod server {
         pub fn handle_connection(&self, mut stream: TcpStream) {
             println!("Got a new connection!");
             let buf_reader = BufReader::new( &mut stream);
+            
+            
             let http_request: Vec<_> = buf_reader
                 .lines()
                 .map(|result| result.unwrap())
-                .take_while(|line| !line.is_empty())
+                .take_while(|line| !line.contains("EOS"))
                 .collect();
 
-            stream.write_all("hello_there".as_bytes());
+            let data = &http_request[http_request.len() - 1];
+            let numbers: Vec<i32> = data.split(" ").map(|x| x.parse::<i32>().unwrap()).collect();
+            let sum: i32 = numbers.iter().sum();
+            let response = format!("HTTP/1.1 200 OK\r\n\r\nhello_there sum is {}", sum);
+            dbg!(http_request);
+            stream.write_all(response.as_bytes());
         }
 
     pub fn serve_forever(&self) {
