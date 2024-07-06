@@ -15,16 +15,26 @@ pub mod server {
 
     impl SimpleServer {
 
-        pub fn new(addr: String, port: String, model: LinearLayer) -> Self {
+        pub fn new(addr: &str, port: &str, model: LinearLayer) -> Self {
             let addr_copy = addr.clone();
-            let full_addr: String = addr_copy + ":" + &port;
+            let full_addr = format!("{}:{}", addr, port);
             return Self {
-                addr: addr.clone(),
-                port: port.clone(),
+                addr: addr.to_owned(),
+                port: port.to_string(),
                 listener: TcpListener::bind(full_addr).unwrap(),
                 model
             };
         }
+        // pub fn new(addr: String, port: String, model: LinearLayer) -> Self {
+        //     let addr_copy = addr.clone();
+        //     let full_addr: String = addr_copy + ":" + &port;
+        //     return Self {
+        //         addr: addr.clone(),
+        //         port: port.clone(),
+        //         listener: TcpListener::bind(full_addr).unwrap(),
+        //         model
+        //     };
+        // }
 
         pub fn send_error(&self, mut stream: TcpStream, msg: String) {
             let response = format!("HTTP/1.1 500 Internal Server Error\r\n\r\n{}", msg);

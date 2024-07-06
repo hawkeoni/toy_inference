@@ -1,4 +1,5 @@
 from typing import List
+import random
 
 import requests
 
@@ -19,4 +20,5 @@ class ServerClient:
 
 client = ServerClient("localhost", "7878")
 
-print(client.infer([1, 2, 3, 4, 6]))
+random.seed(1)
+print(client.infer([random.random() for _ in range(2048)]))
