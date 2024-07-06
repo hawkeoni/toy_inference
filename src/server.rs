@@ -42,7 +42,6 @@ pub mod server {
         }
 
         pub fn handle_connection(&self, mut stream: TcpStream) {
-            println!("Got a new connection!");
             let buf_reader = BufReader::new( &mut stream);
             let http_request: Vec<_> = buf_reader
                 .lines()
@@ -57,8 +56,8 @@ pub mod server {
                 return;
             }
             let result = self.model.forward(numbers);
+            // let result = self.model.forward_par(numbers);
             let response = format!("HTTP/1.1 200 OK\r\n\r\n{}", result);
-            dbg!(http_request);
             stream.write_all(response.as_bytes());
         }
 

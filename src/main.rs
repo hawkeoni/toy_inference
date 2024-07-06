@@ -2,6 +2,7 @@ use std::io::{prelude::*, BufReader};
 use std::fs::File;
 use inference_server::nn::nn::LinearLayer;
 use inference_server::server::server::SimpleServer;
+use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut fin = File::open("lin.bin")?;
