@@ -39,7 +39,7 @@ impl LinearLayer {
         // x - batch, fan_in
         // output - batch, fan_out
         // output = xA; output_ij = \Sum_k x_ik * A_kj
-        if self.fan_in != x[1].len() {
+        if self.fan_in != x[0].len() {
             panic!("Size mismatch for w {} and x {}", self.fan_in, x[1].len());
         }
         match self.mode {

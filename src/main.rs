@@ -1,7 +1,8 @@
 use std::io::{prelude::*, BufReader};
 use std::fs::File;
-use inference_server::nn::LinearLayer;
+use inference_server::nn::{LinearLayer, InferenceMode};
 use inference_server::server::SimpleServer;
+use inference_server::nn::utils::create_random_matrix;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,10 +14,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     let chunk: [u8; 4] = chunk.try_into()?;
     //     v.push(f32::from_le_bytes(chunk));
     // }
-    // let model = LinearLayer::from_vec(v);
-    // let server = SimpleServer::new("127.0.0.1", "7878", model);
-    // server.serve_forever();
-    println!("Hello from main");
+    let layer = LinearLayer::new(create_random_matrix(16, 2), InferenceMode::Naive);
+    let server = SimpleServer::new("127.0.0.1", "7878", layer);
+    // server.serve_forever_simple();
+    server.serve_forever_threads();
+    // println!("Hello from main");
 
     return Ok(());
 }
