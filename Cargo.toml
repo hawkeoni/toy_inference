@@ -3,7 +3,12 @@ name = "inference_server"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "bench"
+path = "src/bench.rs"
+
 [dependencies]
 argparse = "0.2.2"
 rayon = "1.10.0"
-tokio = "1.38.0"
+threadpool = "1.8.1"
+rand = "0.8.5"
