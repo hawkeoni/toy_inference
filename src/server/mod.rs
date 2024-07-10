@@ -32,7 +32,7 @@ impl SimpleServer {
     pub fn new(addr: &str, port: &str, model: LinearLayer) -> Self {
         let (tx, rx) = channel::<ServerInternalMessage>();
         let full_addr = format!("{}:{}", addr, port);
-        let num_threads: usize = 4;
+        let num_threads: usize = 20;
         let pool = ThreadPool::new(num_threads);
         return Self {
             addr: addr.to_owned(),
@@ -94,7 +94,7 @@ impl SimpleServer {
         model: Arc<LinearLayer>,
         inference_worker_receiver: Arc<Mutex<Receiver<ServerInternalMessage>>>,
     ) {
-        let time_freq = Duration::from_millis(100);
+        let time_freq = Duration::from_millis(200);
         loop {
             let start_time = Instant::now();
             let mut batch: Vec<Vec<f32>> = vec![];
@@ -103,16 +103,17 @@ impl SimpleServer {
                 if batch.len() > 0 && Instant::now() - start_time > time_freq {
                     break;
                 }
-                let request = inference_worker_receiver.lock().unwrap().recv().unwrap();
+                let request = inference_worker_receiver.lock().unwrap().try_recv();
                 match request {
-                    ServerInternalMessage::InferenceRequest((x, tx)) => {
+                    Ok(ServerInternalMessage::InferenceRequest((x, tx))) => {
                         batch.push(x);
                         send_channels.push(tx);
                     },
-                    ServerInternalMessage::InferenceResponse(_) => panic!("We should not get response here.")
+                    Ok(ServerInternalMessage::InferenceResponse(_)) => panic!("We should not get response here."),
+                    Err(err) => continue
                 }
             }
-            dbg!(format!("Got a batch of {}", batch.len()));
+            // dbg!(format!("Got a batch of {}", batch.len()));
             let results: Vec<Vec<f32>> = model.forward(&batch);
             for (result, channel) in results.into_iter().zip(send_channels.iter()) {
                 let _ = channel.send(ServerInternalMessage::InferenceResponse(result));
@@ -121,7 +122,6 @@ impl SimpleServer {
     }
 
     fn connection_worker(mut stream: TcpStream, inference_worker_sender: Arc<Mutex<Sender<ServerInternalMessage>>>) {
-        println!("Started a worker");
         let (tx, rx) = channel::<ServerInternalMessage>();
         // let (tx: Sender<, rx: Receiver<Vec<f32>>) = channel();
         let payload = SimpleServer::parse_payload_from_http(&stream);
@@ -134,7 +134,6 @@ impl SimpleServer {
                 let _ = stream.write_all(http_response.as_bytes()).unwrap();
             }
         }
-        println!("Finished a worker");
     }
 
     pub fn serve_forever_simple(&self) {
