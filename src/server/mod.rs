@@ -2,7 +2,7 @@ use std::{
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
     sync::mpsc::{channel, Receiver, Sender},
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use std::thread;
@@ -13,7 +13,7 @@ use crate::nn::LinearLayer;
 
 enum ServerInternalMessage {
     InferenceResponse(Vec<f32>),
-    InferenceRequest((Vec<f32>, Sender<ServerInternalMessage>)),
+    InferenceRequest(Vec<f32>, Sender<ServerInternalMessage>),
 }
 
 pub struct SimpleServer {
@@ -21,28 +21,17 @@ pub struct SimpleServer {
     port: String,
     listener: TcpListener,
     model: Arc<LinearLayer>,
-    num_threads: usize,
-    pool: ThreadPool,
-    tx: Arc<Mutex<Sender<ServerInternalMessage>>>,
-    rx: Arc<Mutex<Receiver<ServerInternalMessage>>>,
 }
 
 
 impl SimpleServer {
     pub fn new(addr: &str, port: &str, model: LinearLayer) -> Self {
-        let (tx, rx) = channel::<ServerInternalMessage>();
         let full_addr = format!("{}:{}", addr, port);
-        let num_threads: usize = 20;
-        let pool = ThreadPool::new(num_threads);
         return Self {
             addr: addr.to_owned(),
             port: port.to_string(),
             listener: TcpListener::bind(full_addr).unwrap(),
             model: Arc::new(model),
-            num_threads,
-            pool,
-            tx: Arc::new(Mutex::new(tx)),
-            rx: Arc::new(Mutex::new(rx)),
         };
     }
 
@@ -92,7 +81,7 @@ impl SimpleServer {
 
     fn inference_worker(
         model: Arc<LinearLayer>,
-        inference_worker_receiver: Arc<Mutex<Receiver<ServerInternalMessage>>>,
+        inference_worker_receiver: Receiver<ServerInternalMessage>,
     ) {
         let time_freq = Duration::from_millis(200);
         loop {
@@ -103,9 +92,9 @@ impl SimpleServer {
                 if batch.len() > 0 && Instant::now() - start_time > time_freq {
                     break;
                 }
-                let request = inference_worker_receiver.lock().unwrap().try_recv();
+                let request = inference_worker_receiver.try_recv();
                 match request {
-                    Ok(ServerInternalMessage::InferenceRequest((x, tx))) => {
+                    Ok(ServerInternalMessage::InferenceRequest(x, tx)) => {
                         batch.push(x);
                         send_channels.push(tx);
                     },
@@ -121,14 +110,14 @@ impl SimpleServer {
         }
     }
 
-    fn connection_worker(mut stream: TcpStream, inference_worker_sender: Arc<Mutex<Sender<ServerInternalMessage>>>) {
+    fn connection_worker(mut stream: TcpStream, inference_worker_sender: Arc<Sender<ServerInternalMessage>>) {
         let (tx, rx) = channel::<ServerInternalMessage>();
         // let (tx: Sender<, rx: Receiver<Vec<f32>>) = channel();
         let payload = SimpleServer::parse_payload_from_http(&stream);
-        inference_worker_sender.lock().unwrap().send(ServerInternalMessage::InferenceRequest((payload, tx)));
+        inference_worker_sender.send(ServerInternalMessage::InferenceRequest(payload, tx));
         let res = rx.recv().unwrap();
         match res {
-            ServerInternalMessage::InferenceRequest(_) => panic!("Got inference request somehow"),
+            ServerInternalMessage::InferenceRequest(_, _) => panic!("Got inference request somehow"),
             ServerInternalMessage::InferenceResponse(vec) => {
                 let http_response = SimpleServer::format_result_http(&vec);
                 let _ = stream.write_all(http_response.as_bytes()).unwrap();
@@ -144,18 +133,20 @@ impl SimpleServer {
         }
     }
 
-    pub fn serve_forever_threads(&self) {
+    pub fn serve_forever_threads(&self, num_threads: usize) {
         println!("Start serving at {}:{}", self.addr, self.port);
+        let pool = ThreadPool::new(num_threads);
+        let (tx, rx) = channel::<ServerInternalMessage>();
+        let tx = Arc::new(tx);
         let model = self.model.clone();
-        let rx = self.rx.clone();
-        let worker_thread_handle = thread::spawn(|| 
+        let worker_thread_handle = thread::spawn(move || 
             {
                 SimpleServer::inference_worker(model, rx)
             }
         );
         for stream in self.listener.incoming() {
-            let tx = self.tx.clone();
-            self.pool.execute(|| SimpleServer::connection_worker(stream.unwrap(), tx));
+            let tx = tx.clone();
+            pool.execute(|| SimpleServer::connection_worker(stream.unwrap(), tx));
         }
     }
 }

@@ -17,8 +17,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let layer = LinearLayer::new(create_random_matrix(1024, 2048), InferenceMode::Naive);
     let layer = LinearLayer::new(create_random_matrix(1024, 2048), InferenceMode::Rayon);
     let server = SimpleServer::new("127.0.0.1", "7878", layer);
-    server.serve_forever_simple();
-    // server.serve_forever_threads();
+    // server.serve_forever_simple();
+    server.serve_forever_threads(20);
     // println!("Hello from main");
 
     return Ok(());
