@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package ll_server;
+
+service LLService { 
+    rpc LLDot(LLRequest) returns (LLResponse); 
+}
+
+message LLRequest { repeated float x = 1; }
+
+message LLResponse { repeated float output = 1; }
