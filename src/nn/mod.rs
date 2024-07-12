@@ -2,6 +2,7 @@ pub mod utils;
 
 use rayon::prelude::*;
 use utils::{create_random_matrix, create_random_vector};
+use libc::{c_float, c_ulong};
 
 pub enum InferenceMode {
     Naive,
@@ -12,11 +13,22 @@ pub enum InferenceMode {
 
 pub struct LinearLayer {
     w: Vec<Vec<f32>>,
+    w_flat: Vec<f32>,
     mode: InferenceMode,
     fan_in: usize,
     fan_out: usize,
 }
 
+extern "C" {
+    fn matmul_gpu_flat(
+        w: *const c_float,
+        x: *const c_float,
+        output: *mut c_float,
+        dim_1: c_ulong,
+        dim_2: c_ulong,
+        dim_3: c_ulong,
+    );
+}
 impl LinearLayer {
 
     pub fn size(&self) -> (usize, usize) {
@@ -26,8 +38,10 @@ impl LinearLayer {
     pub fn new(w: Vec<Vec<f32>>, mode: InferenceMode) -> Self {
         let fan_in = w.len();
         let fan_out = w[0].len();
+        let w_flat = w.clone().into_iter().flatten().collect();
         return Self { 
             w,
+            w_flat,
             mode,
             fan_in,
             fan_out,
@@ -77,8 +91,32 @@ impl LinearLayer {
         return result;
     }
 
+
+    // fn build_matrix_from_vec(x: Vec<f32>) -> Vec<Vec<f32>> {
+    // }
+
+
     fn forward_gpu(&self, x: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
-        return self.forward_cpu(x);
+        let batch_size = x.len();
+        let x_flat: Vec<f32> = x.clone().into_iter().flatten().collect();
+        let mut output: Vec<f32> = Vec::with_capacity(batch_size * self.fan_out);
+        unsafe {
+            matmul_gpu_flat(
+                self.w_flat.as_ptr(),
+                x_flat.as_ptr(),
+                output.as_mut_ptr(),
+                x.len() as u64,
+                self.fan_in as u64,
+                self.fan_out as u64,
+            );
+            output.set_len(batch_size * self.fan_out)
+        }
+        let res: Vec<Vec<f32>> = output
+        .as_slice()
+        .chunks(self.fan_out)
+        .map(|x| x.to_owned())
+        .collect();
+        return res;
     }
     
 }
@@ -106,6 +144,32 @@ mod tests {
         for i in 0..res_naive.len() {
             for j in 0..res_naive[0].len() {
                 assert_eq!(res_naive[i][j], res_rayon[i][j]);
+            }
+        }
+
+        
+
+        return;
+    }
+
+    #[test]
+    fn cuda_check() {
+        let batch_size = 3;
+        let dim0 = 5; let dim1 = 7;
+        let x = create_random_matrix(batch_size, dim0);
+        let w = create_random_matrix(dim0, dim1);
+        let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);
+        let layer_cuda = LinearLayer::new(w.clone(), InferenceMode::Gpu);
+
+        let res_naive = layer_naive.forward(&x);
+        let res_cuda = layer_cuda.forward(&x);
+
+        assert_eq!(res_naive.len(), res_cuda.len());
+        assert_eq!(res_naive[0].len(), res_cuda[0].len());
+
+        for i in 0..res_naive.len() {
+            for j in 0..res_naive[0].len() {
+                assert_eq!(res_naive[i][j], res_cuda[i][j]);
             }
         }
 

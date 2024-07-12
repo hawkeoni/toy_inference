@@ -15,7 +15,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     v.push(f32::from_le_bytes(chunk));
     // }
     // let layer = LinearLayer::new(create_random_matrix(1024, 2048), InferenceMode::Naive);
-    let layer = LinearLayer::new(create_random_matrix(1024, 2048), InferenceMode::Rayon);
+    // let layer = LinearLayer::new(create_random_matrix(1024, 2048), InferenceMode::Rayon);
+    let layer = LinearLayer::new(create_random_matrix(1024, 2048), InferenceMode::Gpu);
     let server = SimpleServer::new("127.0.0.1", "7878", layer);
     // server.serve_forever_simple();
     server.serve_forever_threads(20);

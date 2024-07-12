@@ -42,10 +42,15 @@ void matmul_gpu_flat(float *w, float *x, float *output, size_t dim_1, size_t dim
     gpuErrchk(cudaMalloc(&w_device, dim_2 * dim_3 * sizeof(float)));
     gpuErrchk(cudaMalloc(&x_device, dim_1 * dim_2 * sizeof(float)));
     gpuErrchk(cudaMalloc(&output_device, dim_1 * dim_3 * sizeof(float)));
+
     gpuErrchk(cudaMemcpy(w_device, w, dim_2 * dim_3 * sizeof(float), cudaMemcpyHostToDevice))
     gpuErrchk(cudaMemcpy(x_device, x, dim_1 * dim_2 * sizeof(float), cudaMemcpyHostToDevice))
     dim3 threadDim(32, 32);
     dim3 blockDim(dim_1 / 32 + 1, dim_3 / 32 + 1);
     matmul_gpu<<<blockDim, threadDim>>>(x_device, w_device, output_device, dim_1, dim_2, dim_3);
     gpuErrchk(cudaMemcpy(output, output_device, dim_1 * dim_3 * sizeof(float), cudaMemcpyDeviceToHost));
+
+    gpuErrchk(cudaFree(w_device));
+    gpuErrchk(cudaFree(x_device));
+    gpuErrchk(cudaFree(output_device));
 }
