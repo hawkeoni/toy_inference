@@ -149,4 +149,5 @@ impl SimpleServer {
             pool.execute(|| SimpleServer::connection_worker(stream.unwrap(), tx));
         }
     }
+
 }

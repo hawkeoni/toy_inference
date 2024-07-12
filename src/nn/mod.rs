@@ -81,21 +81,6 @@ impl LinearLayer {
         return self.forward_cpu(x);
     }
     
-    // fn forward_par(&self, x: Vec<f32>) -> f32 {
-    //     if self.w.len() != x.len() {
-    //         panic!("Size mismatch for w {} and x {}", self.w.len(), x.len());
-    //     }
-    //     self.w.par_iter().zip(x.par_iter())
-    //     .map(|(w, x)| w * x)
-    //     .sum()
-    //     // let zip_iter = self.w.iter().zip(x.iter());
-    //     // let result = zip_iter
-    //     // .par_bridge()
-    //     // .map(|x| x.0 * x.1)
-    //     // .reduce_with(|a, b| a + b);
-    //     // // .reduce(|| 0.0, |a, b| a + b);
-    //     // return result.unwrap();
-    // }
 }
 
 #[cfg(test)]
