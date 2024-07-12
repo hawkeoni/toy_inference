@@ -123,8 +123,8 @@ mod tests {
 
     #[test]
     fn rayon_check() {
-        let batch_size = 3;
-        let dim0 = 5; let dim1 = 7;
+        let batch_size = 8;
+        let dim0 = 1024; let dim1 = 2048;
         let x = create_random_matrix(batch_size, dim0);
         let w = create_random_matrix(dim0, dim1);
         let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);
@@ -149,8 +149,8 @@ mod tests {
 
     #[test]
     fn cuda_check() {
-        let batch_size = 3;
-        let dim0 = 5; let dim1 = 7;
+        let batch_size = 8;
+        let dim0 = 1024; let dim1 = 2048;
         let x = create_random_matrix(batch_size, dim0);
         let w = create_random_matrix(dim0, dim1);
         let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);

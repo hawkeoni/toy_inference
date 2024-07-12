@@ -40,21 +40,6 @@ void print_matrix(float *v, size_t dim1, size_t dim2) {
 
 }
 
-
-void matmul_cpu_matrix(float **w, float **x, float **output, size_t dim1, size_t dim2, size_t dim3) {
-    // x - dim1 x dim2
-    // w - dim2 x dim3
-    // output - dim1 x dim3
-    for (size_t i = 0; i < dim1; i++) {
-        for (size_t j = 0; i < dim3; j++) {
-            for (size_t k = 0; k < dim2; k++) {
-            }
-        }
-    }
-
-
-}
-
 void matmul_cpu_flat(float *w, float *x, float *output, size_t dim1, size_t dim2, size_t dim3) {
     // x - dim1 x dim2
     // w - dim2 x dim3
@@ -71,18 +56,18 @@ void matmul_cpu_flat(float *w, float *x, float *output, size_t dim1, size_t dim2
 }
 
 int main(void) {
-    size_t dim1 = 3, dim2 = 5, batch_size = 2;
+    size_t dim1 = 16, dim2 = 32, batch_size = 1;
     float *x = create_vector(batch_size * dim1);
     float *w = create_vector(dim1 * dim2);
     float *r_cpu = (float*)calloc(batch_size * dim2, sizeof(float));
     float *r_gpu = (float*)calloc(batch_size * dim2, sizeof(float));
-    print_matrix(x, batch_size, dim1);
-    printf("\n");
-    print_matrix(w, dim1, dim2);
-    printf("\n");
-    matmul_cpu_flat(w, x, r_cpu, batch_size, dim1, dim2);
-    print_matrix(r_cpu, batch_size, dim2);
-    printf("\n");
+    // print_matrix(x, batch_size, dim1);
+    // printf("\n");
+    // print_matrix(w, dim1, dim2);
+    // printf("\n");
+    // matmul_cpu_flat(w, x, r_cpu, batch_size, dim1, dim2);
+    // print_matrix(r_cpu, batch_size, dim2);
+    // printf("\n");
 
     matmul_gpu_flat(w, x, r_gpu, batch_size, dim1, dim2);
     print_matrix(r_gpu, batch_size, dim2);

@@ -3,8 +3,10 @@ from typing import List, Union, Any
 import random
 import time
 
-import requests
 from multiprocessing import Pool
+from ll_server_pb2_grpc import LLServiceStub
+from ll_server_pb2 import LLRequest, LLResponse
+import grpc
 
 
 VEC_SIZE = 1024
@@ -19,15 +21,16 @@ class ServerClient:
         self.host = host
         self.port = port
         self.addr = host + ":" + port
+        self.channel = grpc.insecure_channel(self.addr)
+        self.stub = LLServiceStub(self.channel)
     
     def infer(self, data: List[Union[int, float]], timeout: int) -> List[Any]:
-        payload = " ".join(map(str, data)) + "\n\n"
-        req = requests.post(f"http://{self.addr}", data=payload, timeout=timeout)
-        req.raise_for_status()
-        return req.content.decode()
+        resp = self.stub.LLDot(LLRequest(x=data))
+        return resp.output
 
-def shoot(client: ServerClient, timeout, duration, start_time):
+def shoot(timeout, duration, start_time):
     s, f = 0, 0
+    client = ServerClient("localhost", "7878")
     payload = generate_random_payload()
     while time.time() - start_time < duration:
         try:
@@ -43,13 +46,13 @@ def main(args):
     duration = 10
     start_time = time.time()
     pool = Pool(n_procs)
-    client = ServerClient("localhost", "7878")
     if args.action == "loadtest":
-        results = pool.starmap(shoot, [[client, timeout, duration, start_time]] * 10)
+        results = pool.starmap(shoot, [[timeout, duration, start_time]] * 10)
         s = sum([r[0] for r in results])
         f = sum([r[1] for r in results])
         print(f"Successes: {s}, Failures: {f}, RPS is {s / duration}")
     elif args.action == "request":
+        client = ServerClient("localhost", "7878")
         random.seed(1)
         payload = generate_random_payload()
         print(client.infer(payload, timeout))
