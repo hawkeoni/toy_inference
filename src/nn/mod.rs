@@ -1,7 +1,6 @@
 pub mod utils;
 
 use rayon::prelude::*;
-use utils::{create_random_matrix, create_random_vector};
 use libc::{c_float, c_ulong};
 
 pub enum InferenceMode {
@@ -91,11 +90,6 @@ impl LinearLayer {
         return result;
     }
 
-
-    // fn build_matrix_from_vec(x: Vec<f32>) -> Vec<Vec<f32>> {
-    // }
-
-
     fn forward_gpu(&self, x: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
         let batch_size = x.len();
         let x_flat: Vec<f32> = x.clone().into_iter().flatten().collect();
@@ -124,7 +118,8 @@ impl LinearLayer {
 #[cfg(test)]
 mod tests {
 
-    use super::{utils::create_random_matrix, InferenceMode, LinearLayer};
+    use super::utils::create_random_matrix;
+    use super::{InferenceMode, LinearLayer};
 
     #[test]
     fn rayon_check() {

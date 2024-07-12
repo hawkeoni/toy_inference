@@ -3,10 +3,10 @@
 version = 3
 
 [[package]]
-name = "argparse"
-version = "0.2.2"
+name = "cc"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f8ebf5827e4ac4fd5946560e6a99776ea73b596d80898f357007317a7141e47"
+checksum = "907d8581360765417f8f2e0e7d602733bbed60156b4465b7617243689ef9b83d"
 
 [[package]]
 name = "cfg-if"
@@ -63,17 +63,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
 
 [[package]]
-name = "httparse"
-version = "1.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fcc0b4a115bf80b728eb8ea024ad5bd707b615bfed49e0665b6e0f86fd082d9"
-
-[[package]]
 name = "inference_server"
 version = "0.1.0"
 dependencies = [
- "argparse",
- "httparse",
+ "cc",
+ "libc",
  "rand",
  "rayon",
  "threadpool",

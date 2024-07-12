@@ -98,8 +98,7 @@ impl SimpleServer {
                         batch.push(x);
                         send_channels.push(tx);
                     },
-                    Ok(ServerInternalMessage::InferenceResponse(_)) => panic!("We should not get response here."),
-                    Err(err) => continue
+                    _ => panic!("Error receiving message in inference worker"),
                 }
             }
             // dbg!(format!("Got a batch of {}", batch.len()));
@@ -114,14 +113,14 @@ impl SimpleServer {
         let (tx, rx) = channel::<ServerInternalMessage>();
         // let (tx: Sender<, rx: Receiver<Vec<f32>>) = channel();
         let payload = SimpleServer::parse_payload_from_http(&stream);
-        inference_worker_sender.send(ServerInternalMessage::InferenceRequest(payload, tx));
+        let _ = inference_worker_sender.send(ServerInternalMessage::InferenceRequest(payload, tx));
         let res = rx.recv().unwrap();
         match res {
-            ServerInternalMessage::InferenceRequest(_, _) => panic!("Got inference request somehow"),
             ServerInternalMessage::InferenceResponse(vec) => {
                 let http_response = SimpleServer::format_result_http(&vec);
                 let _ = stream.write_all(http_response.as_bytes()).unwrap();
             }
+            _ => panic!("Error receiving message in connection worker"),
         }
     }
 
@@ -139,7 +138,7 @@ impl SimpleServer {
         let (tx, rx) = channel::<ServerInternalMessage>();
         let tx = Arc::new(tx);
         let model = self.model.clone();
-        let worker_thread_handle = thread::spawn(move || 
+        let _worker_thread_handle = thread::spawn(move || 
             {
                 SimpleServer::inference_worker(model, rx)
             }

@@ -1,14 +1,14 @@
 use inference_server::nn::{LinearLayer, InferenceMode};
-use inference_server::nn::utils::{create_random_matrix, create_random_vector};
-use std::time::{Instant, Duration};
+use inference_server::nn::utils::create_random_matrix;
+use std::time::Instant;
 
 
 
 
 fn bench_layer(layer: &LinearLayer, x: &Vec<Vec<f32>>, num_iters: u32, name: &str) {
     let start_time = Instant::now();
-    for i in 0..num_iters {
-        let res = layer.forward(x);
+    for _ in 0..num_iters {
+        let _res = layer.forward(x);
     }
     let passed_time = (Instant::now() - start_time).as_secs_f32();
     let time_per_iter = passed_time / (num_iters as f32);
@@ -24,12 +24,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let batch_size = 16;
     let w = create_random_matrix(dim0, dim1);
     let x = create_random_matrix(batch_size, dim0);
-    let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);
 
+    let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);
     bench_layer(&layer_naive, &x, 10, "Naive inference");
 
     let layer_rayon = LinearLayer::new(w.clone(), InferenceMode::Rayon);
     bench_layer(&layer_rayon, &x, 10, "Rayon inference");
+
+
+    let layer_gpu = LinearLayer::new(w.clone(), InferenceMode::Gpu);
+    bench_layer(&layer_gpu, &x, 10, "Gpu inference");
 
     return Ok(());
 }
