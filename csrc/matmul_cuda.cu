@@ -19,9 +19,24 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
+// __global__ void matmul_gpu(float *x, float *w, float *output, unsigned int dim_1, unsigned int dim_2, unsigned int dim_3) {
+//     // x - dim1 x dim2
+//     // w - dim2 x dim3
+//     // output - dim1 x dim3 = xA
+//     unsigned int j = blockIdx.y * blockDim.y + threadIdx.y;
+//     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (i < dim_1 && j < dim_3) {
+//         output[i * dim_3 + j] = 0;
+//         // printf("%d %d %d %d\n", i, j, dim_1, dim_3);
+//         for (unsigned int k = 0; k < dim_2; k++) {
+//             output[i * dim_3 + j] += x[i * dim_2 + k] * w[k * dim_3 + j];
+//         }
+//     }
+// }
+
 __global__ void matmul_gpu(float *x, float *w, float *output, unsigned int dim_1, unsigned int dim_2, unsigned int dim_3) {
     // x - dim1 x dim2
-    // w - dim2 x dim3
+    // w - dim3 x dim2
     // output - dim1 x dim3 = xA
     unsigned int j = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -29,7 +44,7 @@ __global__ void matmul_gpu(float *x, float *w, float *output, unsigned int dim_1
         output[i * dim_3 + j] = 0;
         // printf("%d %d %d %d\n", i, j, dim_1, dim_3);
         for (unsigned int k = 0; k < dim_2; k++) {
-            output[i * dim_3 + j] += x[i * dim_2 + k] * w[k * dim_3 + j];
+            output[i * dim_3 + j] += x[i * dim_2 + k] * w[j * dim_2 + k];
         }
     }
 }

@@ -56,12 +56,12 @@ extern "C" {
 impl LinearLayer {
 
     pub fn size(&self) -> (usize, usize) {
-        return (self.w.len(), self.w[0].len());
+        return (self.fan_in, self.fan_out);
     }
 
     pub fn new(w: Vec<Vec<f32>>, mode: InferenceMode, batch_size: Option<usize>) -> Self {
-        let fan_in = w.len();
-        let fan_out = w[0].len();
+        let fan_in = w[0].len();
+        let fan_out = w.len();
         let w_flat: Vec<f32> = w.clone().into_iter().flatten().collect();
         match mode {
             InferenceMode::Gpu => {
@@ -119,7 +119,7 @@ impl LinearLayer {
         for i in 0..batch_size {
             for j in 0..self.fan_out {
                 for k in 0..self.fan_in {
-                    result[i][j] += x[i][k] * self.w[k][j];
+                    result[i][j] += x[i][k] * self.w[j][k];
                 }
             }
         }
@@ -133,7 +133,7 @@ impl LinearLayer {
         result.par_iter_mut().enumerate().for_each(|(i, rrow)| {
             for j in 0..self.fan_out {
                 for k in 0..self.fan_in {
-                    rrow[j] += x[i][k] * self.w[k][j];
+                    rrow[j] += x[i][k] * self.w[j][k];
                 }
             }
         });
@@ -188,7 +188,7 @@ mod tests {
         let batch_size = 8;
         let dim0 = 1024; let dim1 = 2048;
         let x = create_random_matrix(batch_size, dim0);
-        let w = create_random_matrix(dim0, dim1);
+        let w = create_random_matrix(dim1, dim0);
         let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive, Some(8));
         let layer_rayon = LinearLayer::new(w.clone(), InferenceMode::Rayon, Some(8));
 
@@ -214,7 +214,7 @@ mod tests {
         let batch_size = 8;
         let dim0 = 1024; let dim1 = 2048;
         let x = create_random_matrix(batch_size, dim0);
-        let w = create_random_matrix(dim0, dim1);
+        let w = create_random_matrix(dim1, dim0);
         let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive, Some(8));
         let layer_cuda = LinearLayer::new(w.clone(), InferenceMode::Gpu, Some(8));
 

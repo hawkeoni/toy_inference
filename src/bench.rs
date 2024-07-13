@@ -22,7 +22,7 @@ fn bench_layer(layer: &LinearLayer, x: &Vec<Vec<f32>>, num_iters: u32, name: &st
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dim0 = 1024; let dim1 = 2048;
     let batch_size = 8;
-    let w = create_random_matrix(dim0, dim1);
+    let w = create_random_matrix(dim1, dim0);
     let x = create_random_matrix(batch_size, dim0);
 
     // let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive, Some(16));
