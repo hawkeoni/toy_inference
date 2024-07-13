@@ -9,6 +9,12 @@ pub enum InferenceMode {
     Gpu
 }
 
+struct F32PtrContainer {
+    w: *mut f32
+}
+
+unsafe impl Sync for F32PtrContainer {}
+unsafe impl Send for F32PtrContainer {}
 
 pub struct LinearLayer {
     w: Vec<Vec<f32>>,
@@ -16,6 +22,8 @@ pub struct LinearLayer {
     mode: InferenceMode,
     fan_in: usize,
     fan_out: usize,
+    w_device: Option<F32PtrContainer>,
+    output_device: Option<F32PtrContainer>,
 }
 
 extern "C" {
@@ -27,6 +35,23 @@ extern "C" {
         dim_2: c_ulong,
         dim_3: c_ulong,
     );
+
+    fn move_to_device(
+        vec: *const c_float,
+        size: c_ulong,
+        copy: bool
+    ) -> *mut c_float;
+
+    fn matmul_gpu_flat_only_move_x(
+        w_device: *const c_float,
+        x: *const c_float,
+        output: *mut c_float,
+        output_device: *mut c_float,
+        dim_1: c_ulong,
+        dim_2: c_ulong,
+        dim_3: c_ulong,
+    );
+
 }
 impl LinearLayer {
 
@@ -34,17 +59,43 @@ impl LinearLayer {
         return (self.w.len(), self.w[0].len());
     }
 
-    pub fn new(w: Vec<Vec<f32>>, mode: InferenceMode) -> Self {
+    pub fn new(w: Vec<Vec<f32>>, mode: InferenceMode, batch_size: Option<usize>) -> Self {
         let fan_in = w.len();
         let fan_out = w[0].len();
-        let w_flat = w.clone().into_iter().flatten().collect();
-        return Self { 
-            w,
-            w_flat,
-            mode,
-            fan_in,
-            fan_out,
-        };
+        let w_flat: Vec<f32> = w.clone().into_iter().flatten().collect();
+        match mode {
+            InferenceMode::Gpu => {
+                unsafe {
+                    // println!("Allocating w_device");
+                    let w_device = move_to_device(w_flat.as_ptr(), w_flat.len() as u64, true);
+                    // println!("Allocating output_device");
+                    let output = move_to_device(vec![0.0; (batch_size.unwrap() * fan_out) as usize].as_ptr(), (batch_size.unwrap() * fan_out) as u64, true);
+                    return Self {
+                            w,
+                            w_flat,
+                            mode,
+                            fan_in,
+                            fan_out,
+                            // w_device: None,
+                            // output_device: None
+                            w_device: Some(F32PtrContainer { w: w_device }),
+                            output_device: Some(F32PtrContainer {w: output})
+                    }
+                }
+            },
+            _ => {
+                return Self { 
+                    w,
+                    w_flat,
+                    mode,
+                    fan_in,
+                    fan_out,
+                    w_device: None,
+                    output_device: None
+                };
+            }
+        }
+
     }
 
     pub fn forward(&self, x: &Vec<Vec<f32>>) -> Vec<Vec<f32>>{
@@ -95,14 +146,25 @@ impl LinearLayer {
         let x_flat: Vec<f32> = x.clone().into_iter().flatten().collect();
         let mut output: Vec<f32> = Vec::with_capacity(batch_size * self.fan_out);
         unsafe {
-            matmul_gpu_flat(
-                self.w_flat.as_ptr(),
+            matmul_gpu_flat_only_move_x(
+                self.w_device.as_ref().unwrap().w,
                 x_flat.as_ptr(),
                 output.as_mut_ptr(),
+                self.output_device.as_ref().unwrap().w,
                 x.len() as u64,
                 self.fan_in as u64,
                 self.fan_out as u64,
             );
+
+                
+            // matmul_gpu_flat(
+            //     self.w_flat.as_ptr(),
+            //     x_flat.as_ptr(),
+            //     output.as_mut_ptr(),
+            //     x.len() as u64,
+            //     self.fan_in as u64,
+            //     self.fan_out as u64,
+            // );
             output.set_len(batch_size * self.fan_out)
         }
         let res: Vec<Vec<f32>> = output
@@ -127,8 +189,8 @@ mod tests {
         let dim0 = 1024; let dim1 = 2048;
         let x = create_random_matrix(batch_size, dim0);
         let w = create_random_matrix(dim0, dim1);
-        let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);
-        let layer_rayon = LinearLayer::new(w.clone(), InferenceMode::Rayon);
+        let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive, Some(8));
+        let layer_rayon = LinearLayer::new(w.clone(), InferenceMode::Rayon, Some(8));
 
         let res_naive = layer_naive.forward(&x);
         let res_rayon = layer_rayon.forward(&x);
@@ -153,8 +215,8 @@ mod tests {
         let dim0 = 1024; let dim1 = 2048;
         let x = create_random_matrix(batch_size, dim0);
         let w = create_random_matrix(dim0, dim1);
-        let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);
-        let layer_cuda = LinearLayer::new(w.clone(), InferenceMode::Gpu);
+        let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive, Some(8));
+        let layer_cuda = LinearLayer::new(w.clone(), InferenceMode::Gpu, Some(8));
 
         let res_naive = layer_naive.forward(&x);
         let res_cuda = layer_cuda.forward(&x);

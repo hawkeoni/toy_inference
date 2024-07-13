@@ -53,12 +53,12 @@ impl GrpcServer {
         };
     }
 
-    pub async fn serve(mut self: Self) {
+    pub async fn serve(mut self: Self, batch_size: Option<usize>) {
         let (tx, rx) = tokio::sync::mpsc::channel::<ServerInternalMessage>(100);
         let tx = Arc::new(tx);
         let model = self.model.clone();
         let _worker_thread_handle =
-            tokio::spawn(async { GrpcServer::inference_worker(model, rx).await });
+            tokio::spawn( async move { GrpcServer::inference_worker(model, rx, batch_size).await });
         self.tx = Some(tx);
         let full_addr = format!("{}:{}", self.addr, self.port);
         Server::builder()
@@ -71,11 +71,12 @@ impl GrpcServer {
     async fn inference_worker(
         model: Arc<LinearLayer>,
         mut inference_worker_receiver: tokio::sync::mpsc::Receiver<ServerInternalMessage>,
+        batch_size: Option<usize>
     ) {
         loop {
             let mut batch: Vec<Vec<f32>> = vec![];
             let mut send_channels: Vec<tokio::sync::mpsc::Sender<ServerInternalMessage>> = vec![];
-            let batch_size = 8;
+            let batch_size = batch_size.unwrap_or(8);
             let mut batch_recv = Vec::with_capacity(batch_size);
 
             inference_worker_receiver
