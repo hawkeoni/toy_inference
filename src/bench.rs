@@ -21,18 +21,18 @@ fn bench_layer(layer: &LinearLayer, x: &Vec<Vec<f32>>, num_iters: u32, name: &st
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dim0 = 1024; let dim1 = 2048;
-    let batch_size = 16;
-    let w = create_random_matrix(dim0, dim1);
+    let batch_size = 8;
+    let w = create_random_matrix(dim1, dim0);
     let x = create_random_matrix(batch_size, dim0);
 
-    let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive);
-    bench_layer(&layer_naive, &x, 10, "Naive inference");
+    // let layer_naive = LinearLayer::new(w.clone(), InferenceMode::Naive, Some(16));
+    // bench_layer(&layer_naive, &x, 10, "Naive inference");
 
-    let layer_rayon = LinearLayer::new(w.clone(), InferenceMode::Rayon);
+    let layer_rayon = LinearLayer::new(w.clone(), InferenceMode::Rayon, Some(8));
     bench_layer(&layer_rayon, &x, 10, "Rayon inference");
 
 
-    let layer_gpu = LinearLayer::new(w.clone(), InferenceMode::Gpu);
+    let layer_gpu = LinearLayer::new(w.clone(), InferenceMode::Gpu, Some(8));
     bench_layer(&layer_gpu, &x, 10, "Gpu inference");
 
     return Ok(());
