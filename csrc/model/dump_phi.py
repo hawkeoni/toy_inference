@@ -23,7 +23,9 @@ def dump_config(config: PhiConfig, fout):
         config.rope_theta,
         config.partial_rotary_factor,
         config.layer_norm_eps,
+
     ]
+    head_dim = config.hidden_size // config.num_attention_heads
     int_params = [
         config.vocab_size,
         config.hidden_size,
@@ -31,6 +33,8 @@ def dump_config(config: PhiConfig, fout):
         config.num_hidden_layers,
         config.num_attention_heads,
         config.max_position_embeddings,
+        int(config.partial_rotary_factor * head_dim),
+        head_dim,
     ]
     bytes_written = 0
     bytes_written += fout.write(pack_float(float_params))
@@ -82,7 +86,7 @@ def dump_phi_model(model: PhiForCausalLM, filename: str):
     print(f"Model has {model_params} params corresponding to {4 * model_params} bytes")
     bytes_written = 0
     with open(filename, "wb") as fout:
-        # bytes_written += dump_config(model.config, fout)
+        bytes_written += dump_config(model.config, fout)
         bytes_written += dump_embedding(model.model.embed_tokens, fout)
         for decoder_layer in model.model.layers:
             bytes_written += dump_decoder_layer(decoder_layer, fout)
@@ -105,4 +109,3 @@ if __name__ == "__main__":
     )
     model = PhiForCausalLM(config=config)
     dump_phi_model(model, "model.bin")
-

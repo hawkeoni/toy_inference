@@ -15,6 +15,8 @@ struct {
     unsigned int num_hidden_layers;
     unsigned int num_attention_heads;
     unsigned int max_position_embeddings;
+    unsigned int rotary_dim;
+    unsigned int head_dim;
 } PhiConfig;
 
 typedef 
@@ -46,12 +48,12 @@ typedef struct {
 } PhiMLP;
 
 typedef struct {
-    unsigned int rot_dim;
-    unsigned int head_dim;
-    unsigned int max_position_embeddings;
     float *sin;
     float *cos;
-
+    float *inv_freq;
+    unsigned int rotary_dim;
+    unsigned int head_dim;
+    unsigned int max_position_embeddings;
 } PhiRotaryEmbedding;
 
 typedef struct {

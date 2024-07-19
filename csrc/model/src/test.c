@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "phi_layers.h"
-#include "utils.h"
+#include "phi_utils.h"
 
 char compare_vectors(float *a, float *b, unsigned int size) {
     for (unsigned int position = 0; position < size; ++position) {

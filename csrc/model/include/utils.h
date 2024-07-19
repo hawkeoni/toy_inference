@@ -1,18 +1,20 @@
-#include "phi_layers.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#ifndef _PHI_UTILS
-#define _PHI_UTILS
+#ifndef _PHI_UTILS_UTILS
+#define _PHI_UTILS_UTILS 
 
-
-#define FLOAT_CONFIG_PARAMS_NUM 3
-#define INT_CONFIG_PARAMS_NUM 6
-
-PhiModel* read_model(char *filename);
-PhiModelRunState* create_run_state(PhiConfig* config, unsigned int total_seq_len);
-PhiModelInput* create_input();
-float* read_vector(char* filename, unsigned int size);
-
-
-
+#define READ_AND_CHECK(fd, buf, size)                                  \
+    do {                                                               \
+        ssize_t _bytesRead = read((fd), (buf), (size));                \
+        if (_bytesRead != (size)) {                                    \
+            perror("Error reading from file descriptor");              \
+            fprintf(stderr, "File: %s, Line: %d\n", __FILE__, __LINE__);\
+            fprintf(stderr, "Expected %zu bytes, but got %zd\n",       \
+                    (size_t)(size), _bytesRead);                       \
+            exit(EXIT_FAILURE);                                        \
+        }                                                              \
+    } while (0)
 
 #endif

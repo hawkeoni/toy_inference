@@ -23,7 +23,7 @@ void apply_layernorm(LayerNorm *ln, float *x, float *output, unsigned int total_
     x - [total_seq_len * d_model]
     output - [total_seq_len * d_model]
     */ 
-    size_t d_model = ln->d_model;
+    size_t d_model = ln->hidden_size;
     float delta;
     float mean = 0.0, var = 0.0;
     for (size_t position = 0; position < total_seq_len; ++position) {
@@ -66,20 +66,20 @@ void apply_linear(LinearLayer *ll, float *x, float *output, unsigned int total_s
 }
 
 void apply_rot_pos_emb(PhiRotaryEmbedding *remb, float *q_embed, float *k_embed, PhiModelInput *input) {
-    // remb cos sin - [max_position_embeddings * rot_dim]
+    // remb cos sin - [max_position_embeddings * rotary_dim]
     // query_rot - [total_seq_len * d_model] = [total_seq_len * num_heads * head_dim]
-    // rot_dim <= head_dim
+    // rotary_dim <= head_dim
     // ERROR - embeddings applied along global dim instead of head dim
     for (unsigned int seq_idx = 0; seq_idx < input->total_seq_len; ++seq_idx) {
         // TODO: FIX
         // unsigned int local_position = positions[seq_idx];
         unsigned int local_position = 0;
-        for (unsigned int dim_idx = 0; dim_idx < remb->rot_dim; ++dim_idx) {
+        for (unsigned int dim_idx = 0; dim_idx < remb->rotary_dim; ++dim_idx) {
             unsigned int idx = local_position * remb->head_dim + dim_idx;
-            q_embed[idx] = q_embed[idx] * remb->cos[local_position * remb->rot_dim + idx] -
-            q_embed[idx + remb->head_dim] * remb->sin[local_position * remb->rot_dim + idx];
-            k_embed[idx] = k_embed[idx] * remb->cos[local_position * remb->rot_dim + idx] -
-            k_embed[idx + remb->head_dim] * remb->sin[local_position * remb->rot_dim + idx];
+            q_embed[idx] = q_embed[idx] * remb->cos[local_position * remb->rotary_dim + idx] -
+            q_embed[idx + remb->head_dim] * remb->sin[local_position * remb->rotary_dim + idx];
+            k_embed[idx] = k_embed[idx] * remb->cos[local_position * remb->rotary_dim + idx] -
+            k_embed[idx + remb->head_dim] * remb->sin[local_position * remb->rotary_dim + idx];
         }
     }
 }

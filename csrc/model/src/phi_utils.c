@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "phi_layers.h"
+#include "phi_utils.h"
 #include "utils.h"
 
 
@@ -52,6 +53,17 @@ EmbeddingLayer* create_embedding_layer(float *weight, unsigned int vocab_size, u
     return layer;
 }
 
+PhiRotaryEmbedding *create_rotary_layer(float *sin, float *cos, float *inv_freq,  unsigned int rotary_dim, unsigned int head_dim, unsigned int max_position_embeddings) {
+    PhiRotaryEmbedding *layer = (PhiRotaryEmbedding*)malloc(sizeof(PhiRotaryEmbedding));
+    layer->sin = sin;
+    layer->cos = cos;
+    layer->inv_freq = inv_freq;
+    layer->rotary_dim = rotary_dim;
+    layer->head_dim = head_dim;
+    layer->max_position_embeddings = max_position_embeddings;
+    return layer;
+}
+
 PhiAttention* create_attention_layer(PhiRotaryEmbedding *remb, LinearLayer *qkv_proj, LinearLayer *dense, unsigned int num_heads, unsigned int head_dim, unsigned int hidden_size) {
     PhiAttention *layer = (PhiAttention*)malloc(sizeof(PhiAttention));
     layer->remb = remb;
@@ -88,8 +100,8 @@ PhiModel* read_model(char *filename) {
     model->config = (PhiConfig*)malloc(sizeof(PhiConfig));
     PhiConfig *config = model->config;
 
-    read(fd, buff, FLOAT_CONFIG_PARAMS_NUM * sizeof(float));
-    read(fd, bufi, INT_CONFIG_PARAMS_NUM * sizeof(int));
+    READ_AND_CHECK(fd, buff, FLOAT_CONFIG_PARAMS_NUM * sizeof(float));
+    READ_AND_CHECK(fd, bufi, INT_CONFIG_PARAMS_NUM * sizeof(int));
 
     config->rope_theta = buff[0];
     config->partial_rotary_factor = buff[1];
@@ -101,19 +113,72 @@ PhiModel* read_model(char *filename) {
     config->num_hidden_layers = bufi[3];
     config->num_attention_heads = bufi[4];
     config->max_position_embeddings = bufi[5];
+    config->rotary_dim = bufi[6];
+    config->head_dim = bufi[7];
 
 
+    // embedding layer
     float *embeddings = (float*)malloc(sizeof(float) * config->vocab_size * model->config->hidden_size);
     read(fd, embeddings, sizeof(float) * config->vocab_size * model->config->hidden_size);
     model->embedding_layer = create_embedding_layer(embeddings, config->vocab_size, model->config->hidden_size);
 
-    model->decoder_layers = (PhiDecoderLayer*)malloc(sizeof(PhiDecoderLayer) * config->num_hidden_layers);
+
+    float *buf1, *buf2, *buf3;
+    model->decoder_layers = (PhiDecoderLayer**)malloc(sizeof(PhiDecoderLayer*) * config->num_hidden_layers);
     for (unsigned int layer_idx = 0; layer_idx < config->num_hidden_layers; ++layer_idx) {
-        // TODO: create decoder layer
-        LayerNorm *preln = create_layernorm_layer(NULL, NULL, config->layer_norm_eps, model->config->hidden_size);
-        PhiAttention *attn;
-        LinearLayer *fc1;
-        LinearLayer *fc2;
+        // preln
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size);
+        read(fd, buf1, sizeof(float) * config->hidden_size);
+        read(fd, buf2, sizeof(float) * config->hidden_size);
+        LayerNorm *preln = create_layernorm_layer(buf1, buf2, config->layer_norm_eps, model->config->hidden_size);
+
+        // linear fc1
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
+        read(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
+        read(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
+        LinearLayer *fc1 = create_linear_layer(buf1, buf2, config->hidden_size, config->intermediate_size);
+        
+        // linear fc2
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
+        read(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
+        read(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
+        LinearLayer *fc2 = create_linear_layer(buf1, buf2, config->intermediate_size, config->hidden_size);
+
+        // attention
+        // attention rotary
+        unsigned int inv_freq_size = (config->rotary_dim - 1) / 2 + 1;
+        // sin
+        buf1 = (float*)malloc(sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
+        read(fd, buf1, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
+        // cos
+        buf2 = (float*)malloc(sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
+        read(fd, buf2, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
+        // inv_freq
+        buf3  = (float*)malloc(sizeof(float) * inv_freq_size);
+        read(fd, buf3, inv_freq_size);
+        PhiRotaryEmbedding *remb = create_rotary_layer(buf1, buf2, buf3, config->rotary_dim, config->head_dim, config->max_position_embeddings);
+
+        // attention qkv
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        read(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        read(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        LinearLayer *qkv_proj = create_linear_layer(buf1, buf2, config->hidden_size * config->hidden_size * 3, config->hidden_size * config->hidden_size * 3);
+
+        // attention dense
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
+        read(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size);
+        read(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size);
+        LinearLayer *dense = create_linear_layer(buf1, buf2, config->hidden_size * config->hidden_size, config->hidden_size * config->hidden_size);
+
+        // attention itself
+        PhiAttention *attn = create_attention_layer(remb, qkv_proj, dense, config->num_attention_heads, config->head_dim, config->hidden_size);
+
+        // decoder
         model->decoder_layers[layer_idx] = create_decoder_layer(preln, attn, fc1, fc2, config->hidden_size, model->config->intermediate_size);
     }
 
