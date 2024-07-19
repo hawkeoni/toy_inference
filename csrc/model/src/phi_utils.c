@@ -119,7 +119,7 @@ PhiModel* read_model(char *filename) {
 
     // embedding layer
     float *embeddings = (float*)malloc(sizeof(float) * config->vocab_size * model->config->hidden_size);
-    read(fd, embeddings, sizeof(float) * config->vocab_size * model->config->hidden_size);
+    READ_AND_CHECK(fd, embeddings, sizeof(float) * config->vocab_size * model->config->hidden_size);
     model->embedding_layer = create_embedding_layer(embeddings, config->vocab_size, model->config->hidden_size);
 
 
@@ -129,22 +129,22 @@ PhiModel* read_model(char *filename) {
         // preln
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size);
         buf2 = (float*)malloc(sizeof(float) * config->hidden_size);
-        read(fd, buf1, sizeof(float) * config->hidden_size);
-        read(fd, buf2, sizeof(float) * config->hidden_size);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size);
         LayerNorm *preln = create_layernorm_layer(buf1, buf2, config->layer_norm_eps, model->config->hidden_size);
 
         // linear fc1
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
         buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
-        read(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
-        read(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
         LinearLayer *fc1 = create_linear_layer(buf1, buf2, config->hidden_size, config->intermediate_size);
         
         // linear fc2
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
         buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
-        read(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
-        read(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
         LinearLayer *fc2 = create_linear_layer(buf1, buf2, config->intermediate_size, config->hidden_size);
 
         // attention
@@ -152,27 +152,27 @@ PhiModel* read_model(char *filename) {
         unsigned int inv_freq_size = (config->rotary_dim - 1) / 2 + 1;
         // sin
         buf1 = (float*)malloc(sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
-        read(fd, buf1, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
         // cos
         buf2 = (float*)malloc(sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
-        read(fd, buf2, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
         // inv_freq
         buf3  = (float*)malloc(sizeof(float) * inv_freq_size);
-        read(fd, buf3, inv_freq_size);
+        READ_AND_CHECK(fd, buf3, inv_freq_size);
         PhiRotaryEmbedding *remb = create_rotary_layer(buf1, buf2, buf3, config->rotary_dim, config->head_dim, config->max_position_embeddings);
 
         // attention qkv
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size * 3);
         buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size * 3);
-        read(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size * 3);
-        read(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size * 3);
         LinearLayer *qkv_proj = create_linear_layer(buf1, buf2, config->hidden_size * config->hidden_size * 3, config->hidden_size * config->hidden_size * 3);
 
         // attention dense
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
         buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
-        read(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size);
-        read(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size);
         LinearLayer *dense = create_linear_layer(buf1, buf2, config->hidden_size * config->hidden_size, config->hidden_size * config->hidden_size);
 
         // attention itself
@@ -182,9 +182,18 @@ PhiModel* read_model(char *filename) {
         model->decoder_layers[layer_idx] = create_decoder_layer(preln, attn, fc1, fc2, config->hidden_size, model->config->intermediate_size);
     }
 
+    buf1 = (float*)malloc(sizeof(float) * config->hidden_size);
+    buf2 = (float*)malloc(sizeof(float) * config->hidden_size);
+    READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size);
+    READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size);
+    model->final_layernorm = create_layernorm_layer(buf1, buf2, config->layer_norm_eps, model->config->hidden_size);
 
-    model->final_layernorm = create_layernorm_layer(NULL, NULL, config->layer_norm_eps, model->config->hidden_size);
-    model->lm_head = create_linear_layer(NULL, NULL, config->hidden_size, model->config->vocab_size);
+
+    buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->vocab_size);
+    buf2 = (float*)malloc(sizeof(float) * config->vocab_size);
+    READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->vocab_size);
+    READ_AND_CHECK(fd, buf2, sizeof(float) * config->vocab_size);
+    model->lm_head = create_linear_layer(buf1, buf2, config->hidden_size, model->config->vocab_size);
 
     close(fd);
     return model;
