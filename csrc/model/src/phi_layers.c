@@ -133,8 +133,8 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
 
     // *_states - [total_seq_len, num_heads, head_dim]
     query_states = qkv_proj_output;
-    key_states = qkv_proj_output + input->total_seq_len * attn->d_model;
-    value_states = key_states + input->total_seq_len * attn->d_model;
+    key_states = qkv_proj_output + input->total_seq_len * attn->hidden_size;
+    value_states = key_states + input->total_seq_len * attn->hidden_size;
 
     // 2. apply rotary embeddings
     apply_rot_pos_emb(attn->remb, query_states, key_states, input);
@@ -145,15 +145,15 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
     apply_linear(attn->dense, decoder_state->attention_output, decoder_state->dense_output, input->total_seq_len);
 }
 
-void add_residual(float *pre_ln_x, float *ffn_result, float *attention_output, float *output, unsigned int total_seq_len, unsigned int hidden_dim) {
-    for (unsigned int idx = 0; idx < total_seq_len * hidden_dim; ++idx) {
+void add_residual(float *pre_ln_x, float *ffn_result, float *attention_output, float *output, unsigned int total_seq_len, unsigned int hidden_size) {
+    for (unsigned int idx = 0; idx < total_seq_len * hidden_size; ++idx) {
         output[idx] += pre_ln_x[idx] + ffn_result[idx] + attention_output[idx];
     }
 }
 
 void apply_gelu(float *x, unsigned int size) {
     for (unsigned int idx = 0; idx < size; ++idx) {
-        x[idx] = 0.5 * x[idx] * (1 + tahnhf(sqrtf(2 / M_PI) * (x[idx] + 0.044715f * pow(x[idx], 3))));
+        x[idx] = 0.5 * x[idx] * (1 + tanhf(sqrtf(2 / M_PI) * (x[idx] + 0.044715f * pow(x[idx], 3))));
     }
 }
 
@@ -163,7 +163,7 @@ void apply_decoder(PhiDecoderLayer *decoder_layer, float *hidden_states, PhiDeco
     apply_linear(decoder_layer->fc1, decoder_state->attention_output, decoder_state->ffn_intermediate, input->total_seq_len);
     apply_gelu(decoder_state->ffn_intermediate, input->total_seq_len * decoder_layer->intermediate_dim);
     apply_linear(decoder_layer->fc2, decoder_state->ffn_intermediate, decoder_state->ffn_result, input->total_seq_len);
-    add_residual(hidden_states, decoder_state->ffn_result, decoder_state->attention_output, decoder_state->output, input->total_seq_len, decoder_layer->hidden_dim);
+    add_residual(hidden_states, decoder_state->ffn_result, decoder_state->attention_output, decoder_state->output, input->total_seq_len, decoder_layer->hidden_size);
 }
 
 
@@ -172,7 +172,7 @@ void apply_model(PhiModel *model, PhiModelRunState *state, PhiModelInput *input)
     float *decoder_input = state->embedded_tokens;
     PhiDecoderRunState *decoder_state;
     for (unsigned int layer_idx = 0; layer_idx < model->config->num_hidden_layers; ++layer_idx) {
-        apply_decoder(model->decoder_layers + layer_idx, decoder_input, state->decoder_run_states + layer_idx, input);
+        apply_decoder(model->decoder_layers[layer_idx], decoder_input, state->decoder_run_states + layer_idx, input);
         decoder_input = (state->decoder_run_states + layer_idx)->output;
     }
     apply_layernorm(

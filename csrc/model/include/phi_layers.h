@@ -7,6 +7,7 @@ typedef
 struct {
     float rope_theta;
     float partial_rotary_factor;
+    float layer_norm_eps;
 
     unsigned int vocab_size;
     unsigned int hidden_size;
@@ -14,9 +15,6 @@ struct {
     unsigned int num_hidden_layers;
     unsigned int num_attention_heads;
     unsigned int max_position_embeddings;
-
-
-
 } PhiConfig;
 
 typedef 
@@ -35,7 +33,7 @@ typedef struct {
 } LinearLayer;
 
 typedef struct {
-    unsigned int d_model;
+    unsigned int hidden_size;
     float *gamma;
     float *beta;
     float epsilon;
@@ -62,26 +60,25 @@ typedef struct {
     LinearLayer *dense;
     unsigned int num_heads;
     unsigned int head_dim;
-    unsigned int d_model;
+    unsigned int hidden_size;
 
 } PhiAttention;
 
 typedef struct {
     LayerNorm *preln;
-    unsigned int hidden_dim;
-    unsigned int intermediate_dim;
     PhiAttention *attention_layer;
     LinearLayer *fc1;
     LinearLayer *fc2;
 
-
+    unsigned int hidden_size;
+    unsigned int intermediate_dim;
 } PhiDecoderLayer;
 
 typedef
 struct {
     PhiConfig *config;
     EmbeddingLayer *embedding_layer;
-    PhiDecoderLayer *decoder_layers;
+    PhiDecoderLayer **decoder_layers;
     LayerNorm *final_layernorm;
     LinearLayer *lm_head;
 } PhiModel;
@@ -113,4 +110,6 @@ typedef struct {
 } PhiModelInput;
 
 void apply_model(PhiModel *model, PhiModelRunState *state, PhiModelInput *input);
+
+
 #endif

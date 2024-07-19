@@ -4,7 +4,7 @@
 #define _PHI_UTILS
 
 
-#define FLOAT_CONFIG_PARAMS_NUM 2
+#define FLOAT_CONFIG_PARAMS_NUM 3
 #define INT_CONFIG_PARAMS_NUM 6
 
 PhiModel* read_model(char *filename);
