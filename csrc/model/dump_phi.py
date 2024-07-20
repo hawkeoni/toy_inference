@@ -68,9 +68,13 @@ def dump_rotary(layer: PhiRotaryEmbedding, fout):
 
 def dump_attention(layer: PhiAttention, fout):
     bytes_written = dump_rotary(layer.rotary_emb, fout)
-    bytes_written += dump_linear(layer.q_proj, fout)
-    bytes_written += dump_linear(layer.k_proj, fout)
-    bytes_written += dump_linear(layer.v_proj, fout)
+    qkv_proj = torch.cat((layer.q_proj.weight, layer.k_proj.weight, layer.v_proj.weight), dim=0).view(-1).tolist()
+    qkv_bias = torch.cat((layer.q_proj.bias, layer.k_proj.bias, layer.v_proj.bias), dim=0).view(-1).tolist()
+    bytes_written += fout.write(pack_float(qkv_proj))
+    bytes_written += fout.write(pack_float(qkv_bias))
+    # bytes_written += dump_linear(layer.q_proj, fout)
+    # bytes_written += dump_linear(layer.k_proj, fout)
+    # bytes_written += dump_linear(layer.v_proj, fout)
     bytes_written += dump_linear(layer.dense, fout)
     return bytes_written
 
@@ -108,4 +112,5 @@ if __name__ == "__main__":
         partial_rotary_factor=0.4,
     )
     model = PhiForCausalLM(config=config)
+    torch.save(model.state_dict(), "model.pt")
     dump_phi_model(model, "model.bin")

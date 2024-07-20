@@ -135,44 +135,44 @@ PhiModel* read_model(char *filename) {
 
         // linear fc1
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
-        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
+        buf2 = (float*)malloc(sizeof(float) * config->intermediate_size);
         READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
-        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->intermediate_size);
         LinearLayer *fc1 = create_linear_layer(buf1, buf2, config->hidden_size, config->intermediate_size);
         
         // linear fc2
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
-        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->intermediate_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size);
         READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->intermediate_size);
-        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->intermediate_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size);
         LinearLayer *fc2 = create_linear_layer(buf1, buf2, config->intermediate_size, config->hidden_size);
 
         // attention
         // attention rotary
         unsigned int inv_freq_size = (config->rotary_dim - 1) / 2 + 1;
-        // sin
+        // cos
         buf1 = (float*)malloc(sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
         READ_AND_CHECK(fd, buf1, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
-        // cos
+        // sin
         buf2 = (float*)malloc(sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
         READ_AND_CHECK(fd, buf2, sizeof(float) * config->max_position_embeddings * inv_freq_size * 2);
         // inv_freq
         buf3  = (float*)malloc(sizeof(float) * inv_freq_size);
-        READ_AND_CHECK(fd, buf3, inv_freq_size);
-        PhiRotaryEmbedding *remb = create_rotary_layer(buf1, buf2, buf3, config->rotary_dim, config->head_dim, config->max_position_embeddings);
+        READ_AND_CHECK(fd, buf3, inv_freq_size * sizeof(float));
+        PhiRotaryEmbedding *remb = create_rotary_layer(buf2, buf1, buf3, config->rotary_dim, config->head_dim, config->max_position_embeddings);
 
         // attention qkv
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size * 3);
-        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * 3);
         READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size * 3);
-        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size * 3);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * 3);
         LinearLayer *qkv_proj = create_linear_layer(buf1, buf2, config->hidden_size * config->hidden_size * 3, config->hidden_size * config->hidden_size * 3);
 
         // attention dense
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
-        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
+        buf2 = (float*)malloc(sizeof(float) *  config->hidden_size);
         READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size);
-        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * config->hidden_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size);
         LinearLayer *dense = create_linear_layer(buf1, buf2, config->hidden_size * config->hidden_size, config->hidden_size * config->hidden_size);
 
         // attention itself
