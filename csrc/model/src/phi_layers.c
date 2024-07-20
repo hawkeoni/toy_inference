@@ -60,6 +60,7 @@ void apply_linear(LinearLayer *ll, float *x, float *output, unsigned int total_s
             for (size_t k = 0; k < fan_in; ++k) {
                 output[i * fan_out + j] += x[i * fan_in + k] * ll->weight[j * fan_in + k];
             }
+            // TODO: add bias as memcpy (?)
             output[i * fan_out + j] += ll->bias[j];
         }
    }
@@ -85,11 +86,10 @@ void apply_rot_pos_emb(PhiRotaryEmbedding *remb, float *q_embed, float *k_embed,
 }
 
 // void calculate_attention(float *q, float *k, float *v, float *output, unsigned int batch_size, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int total_seq_len, size_t num_heads, size_t head_dim) {
-void calculate_attention(float *q, float *k, float *v, PhiDecoderRunState *decoder_state, PhiModelInput *input, unsigned int num_heads, unsigned int head_dim) {
+void calculate_attention(float *q, float *k, float *v, PhiDecoderRunState *decoder_state, PhiModelInput *input, unsigned int num_heads, unsigned int head_dim, float *sims) {
     // q, k, v - [total_seq_len, num_heads, head_dim]
     // output - [total_seq_len, num_heads, head_dim]
     // sims - [total_seq_len, total_seq_len]
-    float *sims;
     for (unsigned int batch_idx = 0; batch_idx < input->batch_size; ++batch_idx) {
         unsigned int start_position = input->seq_starts[batch_idx], end_position = input->seq_starts[batch_idx] + input->seq_lens[batch_idx];
         unsigned int seq_len = input->seq_lens[batch_idx];
@@ -126,20 +126,19 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
     output[i][j] = SUM_k x[i][k] * weight[j][k],
     */ 
    // ALLOCATE THEM!!!
-    float *qkv_proj_output;
     float *query_states, *key_states, *value_states; // [total_seq_len, d_model]
     // 1. Calculate projections
-    apply_linear(attn->qkv_proj, x, qkv_proj_output, input->total_seq_len);
+    apply_linear(attn->qkv_proj, x, decoder_state->qkv_proj_output, input->total_seq_len);
 
     // *_states - [total_seq_len, num_heads, head_dim]
-    query_states = qkv_proj_output;
-    key_states = qkv_proj_output + input->total_seq_len * attn->hidden_size;
+    query_states = decoder_state->qkv_proj_output;
+    key_states = decoder_state->qkv_proj_output + input->total_seq_len * attn->hidden_size;
     value_states = key_states + input->total_seq_len * attn->hidden_size;
 
     // 2. apply rotary embeddings
     apply_rot_pos_emb(attn->remb, query_states, key_states, input);
     // 3. calculate attention
-    calculate_attention(query_states, key_states, value_states, decoder_state, input, attn->num_heads, attn->head_dim);
+    calculate_attention(query_states, key_states, value_states, decoder_state, input, attn->num_heads, attn->head_dim, decoder_state->sims);
     //attention_output, batch_size, seq_starts, seq_lens, total_seq_len, attn->num_heads, attn->head_dim);
     // 4. final linear
     apply_linear(attn->dense, decoder_state->attention_output, decoder_state->dense_output, input->total_seq_len);

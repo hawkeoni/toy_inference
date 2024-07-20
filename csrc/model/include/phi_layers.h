@@ -92,6 +92,8 @@ typedef struct {
     float *ffn_result;
     float *dense_output;
     float *output;
+    float *qkv_proj_output;
+    float *sims;
 } PhiDecoderRunState;
 
 typedef struct {
