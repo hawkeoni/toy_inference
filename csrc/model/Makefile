@@ -1,4 +1,4 @@
-SOURCE_FILES := src/phi_layers.c src/phi_utils.c
+SOURCE_FILES := src/phi_layers.c src/phi_utils.c src/ops_cpu.c
 INCLUDE_FLAGS := -Iinclude
 test: $(SOURCE_FILES) src/test.c bin
 	gcc $(INCLUDE_FLAGS) -g $(SOURCE_FILES) src/test.c -o bin/test

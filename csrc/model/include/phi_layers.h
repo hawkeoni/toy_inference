@@ -89,6 +89,7 @@ typedef struct {
     float *pre_ln_result;
     float *attention_output;
     float *ffn_intermediate;
+    float *activations;
     float *ffn_result;
     float *dense_output;
     float *output;

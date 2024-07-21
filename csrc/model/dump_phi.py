@@ -113,8 +113,11 @@ if __name__ == "__main__":
         rope_theta=10000,
         partial_rotary_factor=0.4,
     )
+    # config = PhiConfig.from_pretrained("microsoft/phi-2")
+    print("Creating model")
     model = PhiForCausalLM(config=config)
     for parameter in model.parameters():
         torch.nn.init.normal_(parameter)
+    print("Dumping model")
     dump_phi_model(model, "model.bin")
     torch.save(model.state_dict(), "model.pt")
