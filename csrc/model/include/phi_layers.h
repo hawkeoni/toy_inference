@@ -58,7 +58,7 @@ typedef struct {
 
 typedef struct {
     PhiRotaryEmbedding *remb;
-    LinearLayer *qkv_proj;
+    LinearLayer *q_proj, *k_proj, *v_proj;
     LinearLayer *dense;
     unsigned int num_heads;
     unsigned int head_dim;
@@ -93,7 +93,7 @@ typedef struct {
     float *ffn_result;
     float *dense_output;
     float *output;
-    float *qkv_proj_output;
+    float *query_states, *key_states, *value_states;
     float *sims;
 } PhiDecoderRunState;
 

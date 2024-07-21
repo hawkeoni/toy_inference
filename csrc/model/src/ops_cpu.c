@@ -9,26 +9,16 @@ void embedding_op(float *embeddings, unsigned int *token_ids, float *output, uns
 }
 
 void linear_op(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len) {
-// void linear_op(LinearLayer *ll, float *x, float *output, unsigned int total_seq_len) {
-    /*
-    ll->weight - [fan_out, fan_in]
-    ll->bias - [fan_out]
-    x - [total_seq_len * fan_in]
-    output - [total_seq_len * fan_out]
-
-    output[i][j] = SUM_k x[i][k] * weight[k][j],
-    but we have weight transposed, so
-    output[i][j] = SUM_k x[i][k] * weight[j][k],
-    */ 
    for (unsigned int i = 0; i < total_seq_len; ++i) {
         for (unsigned int j = 0; j < fan_out; ++j) {
+            output[i * fan_out + j] = bias[j];
             for (unsigned int k = 0; k < fan_in; ++k) {
                 output[i * fan_out + j] += x[i * fan_in + k] * weight[j * fan_in + k];
             }
-            output[i * fan_out + j] += bias[j];
         }
    }
 }
+
 
 void sum_3_op(float *pre_ln_x, float *ffn_result, float *attention_output, float *output, unsigned int total_seq_len, unsigned int hidden_size) {
     for (unsigned int idx = 0; idx < total_seq_len * hidden_size; ++idx) {
@@ -66,26 +56,37 @@ void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *out
         }
         var /= hidden_size;
         for (unsigned int dim = 0; dim < hidden_size; ++dim) {
-            output[position * hidden_size + dim] = (x[position * hidden_size + dim] - mean) * gamma[dim] / (sqrtf(var + epsilon)) + beta[dim];
+            output[position * hidden_size + dim] = (x[position * hidden_size + dim] - mean) / (sqrtf(var + epsilon)) * gamma[dim] + beta[dim];
         }
     }
 }
 
-void rotary_op(float *sin, float *cos, float *q_embed, float *k_embed, unsigned int rotary_dim, unsigned int head_dim, unsigned int total_seq_len) {
+void rotary_op(float *sin, float *cos, float *q_embed, float *k_embed, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int total_seq_len) {
     // remb cos sin - [max_position_embeddings * rotary_dim]
-    // query_rot - [total_seq_len * d_model] = [total_seq_len * num_heads * head_dim]
+    // q_embed - [total_seq_len, num_heads, head_dim]
     // rotary_dim <= head_dim
+    // add positions
     // ERROR - embeddings applied along global dim instead of head dim
+    unsigned int half_rot_dim = rotary_dim / 2;
+    unsigned int global_idx;
     for (unsigned int seq_idx = 0; seq_idx < total_seq_len; ++seq_idx) {
-        // TODO: FIX
-        // unsigned int local_position = positions[seq_idx];
-        unsigned int local_position = 0;
-        for (unsigned int dim_idx = 0; dim_idx < rotary_dim; ++dim_idx) {
-            unsigned int idx = local_position * head_dim + dim_idx;
-            q_embed[idx] = q_embed[idx] * cos[local_position * rotary_dim + idx] -
-            q_embed[idx + head_dim] * sin[local_position * rotary_dim + idx];
-            k_embed[idx] = k_embed[idx] * cos[local_position * rotary_dim + idx] -
-            k_embed[idx + head_dim] * sin[local_position * rotary_dim + idx];
+        for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
+            for (unsigned int dim_idx = 0; dim_idx < rotary_dim; ++dim_idx) {
+                global_idx = seq_idx * num_heads * head_dim + head_idx * head_dim + dim_idx;
+                // global_idx is a global index that represents q_embed[seq_idx, head_idx, dim_idx]
+
+            }
         }
     }
+
+        // // TODO: FIX
+        // // unsigned int local_position = positions[seq_idx];
+        // unsigned int local_position = 0;
+        //     unsigned int idx = local_position * head_dim + dim_idx;
+        //     q_embed[idx] = q_embed[idx] * cos[local_position * rotary_dim + idx] -
+        //     q_embed[idx + head_dim] * sin[local_position * rotary_dim + idx];
+        //     k_embed[idx] = k_embed[idx] * cos[local_position * rotary_dim + idx] -
+        //     k_embed[idx + head_dim] * sin[local_position * rotary_dim + idx];
+        // }
+    // }
 }

@@ -15,7 +15,9 @@ void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config
     decoder_state->activations = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->dense_output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    decoder_state->qkv_proj_output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size * 3);
+    decoder_state->query_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
+    decoder_state->key_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
+    decoder_state->value_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->sims = (float*)malloc(sizeof(float) * total_seq_len * total_seq_len);
 }
 
@@ -68,10 +70,12 @@ PhiRotaryEmbedding *create_rotary_layer(float *sin, float *cos, float *inv_freq,
     return layer;
 }
 
-PhiAttention* create_attention_layer(PhiRotaryEmbedding *remb, LinearLayer *qkv_proj, LinearLayer *dense, unsigned int num_heads, unsigned int head_dim, unsigned int hidden_size) {
+PhiAttention* create_attention_layer(PhiRotaryEmbedding *remb, LinearLayer *q_proj, LinearLayer *k_proj, LinearLayer *v_proj, LinearLayer *dense, unsigned int num_heads, unsigned int head_dim, unsigned int hidden_size) {
     PhiAttention *layer = (PhiAttention*)malloc(sizeof(PhiAttention));
     layer->remb = remb;
-    layer->qkv_proj = qkv_proj;
+    layer->q_proj = q_proj;
+    layer->k_proj = k_proj;
+    layer->v_proj = v_proj;
     layer->dense = dense;
     layer->num_heads = num_heads;
     layer->head_dim = head_dim;
@@ -166,11 +170,24 @@ PhiModel* read_model(char *filename) {
         PhiRotaryEmbedding *remb = create_rotary_layer(buf2, buf1, buf3, config->rotary_dim, config->head_dim, config->max_position_embeddings);
 
         // attention qkv
-        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size * 3);
-        buf2 = (float*)malloc(sizeof(float) * config->hidden_size * 3);
-        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size * 3);
-        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size * 3);
-        LinearLayer *qkv_proj = create_linear_layer(buf1, buf2, config->hidden_size * 3, config->hidden_size * 3);
+        // q
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size);
+        LinearLayer *q_proj = create_linear_layer(buf1, buf2, config->hidden_size, config->hidden_size);
+        // k
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size);
+        LinearLayer *k_proj = create_linear_layer(buf1, buf2, config->hidden_size, config->hidden_size);
+        // v
+        buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
+        buf2 = (float*)malloc(sizeof(float) * config->hidden_size);
+        READ_AND_CHECK(fd, buf1, sizeof(float) * config->hidden_size * config->hidden_size);
+        READ_AND_CHECK(fd, buf2, sizeof(float) * config->hidden_size);
+        LinearLayer *v_proj = create_linear_layer(buf1, buf2, config->hidden_size, config->hidden_size);
 
         // attention dense
         buf1 = (float*)malloc(sizeof(float) * config->hidden_size * config->hidden_size);
@@ -180,7 +197,7 @@ PhiModel* read_model(char *filename) {
         LinearLayer *dense = create_linear_layer(buf1, buf2, config->hidden_size, config->hidden_size);
 
         // attention itself
-        PhiAttention *attn = create_attention_layer(remb, qkv_proj, dense, config->num_attention_heads, config->head_dim, config->hidden_size);
+        PhiAttention *attn = create_attention_layer(remb, q_proj, k_proj, v_proj, dense, config->num_attention_heads, config->head_dim, config->hidden_size);
 
         // decoder
         model->decoder_layers[layer_idx] = create_decoder_layer(preln, attn, fc1, fc2, config->hidden_size, model->config->intermediate_size);

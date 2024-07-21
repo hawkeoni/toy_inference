@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import pad_sequence
 from transformers import PhiConfig, PhiForCausalLM, AutoTokenizer
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
 
-from dump_phi import pack_num
+from dump_phi import pack_num, TEST_CONFIG
 
 
 NUM_TESTCASES = 10
@@ -88,17 +88,7 @@ def dump_intermediate_activations(model: PhiForCausalLM, directory):
 
 
 def main():
-    config = PhiConfig(
-        vocab_size=3000,
-        hidden_size=16,
-        intermediate_size=32,
-        num_hidden_layers=5,
-        num_attention_heads=2,
-        max_position_embeddings=100,
-        rope_theta=10000,
-        partial_rotary_factor=0.5,
-    )
-    model = PhiForCausalLM(config=config)
+    model = PhiForCausalLM(config=TEST_CONFIG)
     model.load_state_dict(torch.load("model.pt"))
     model = model.eval()
     for name, layer in model.named_modules():

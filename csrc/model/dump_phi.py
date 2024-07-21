@@ -9,6 +9,17 @@ from transformers.models.phi.modeling_phi import PhiAttention, PhiDecoderLayer, 
 
 torch.manual_seed(0)
 
+TEST_CONFIG = PhiConfig(
+    vocab_size=3000,
+    hidden_size=16,
+    intermediate_size=32,
+    num_hidden_layers=5,
+    num_attention_heads=2,
+    max_position_embeddings=100,
+    rope_theta=10000,
+    partial_rotary_factor=0.5,
+)
+
 def calculate_model_params(model: PhiForCausalLM):
     total_params = 0
     for param in model.parameters():
@@ -70,13 +81,13 @@ def dump_rotary(layer: PhiRotaryEmbedding, fout):
 
 def dump_attention(layer: PhiAttention, fout):
     bytes_written = dump_rotary(layer.rotary_emb, fout)
-    qkv_proj = torch.cat((layer.q_proj.weight, layer.k_proj.weight, layer.v_proj.weight), dim=0).view(-1).tolist()
-    qkv_bias = torch.cat((layer.q_proj.bias, layer.k_proj.bias, layer.v_proj.bias), dim=0).view(-1).tolist()
-    bytes_written += fout.write(pack_num(qkv_proj))
-    bytes_written += fout.write(pack_num(qkv_bias))
-    # bytes_written += dump_linear(layer.q_proj, fout)
-    # bytes_written += dump_linear(layer.k_proj, fout)
-    # bytes_written += dump_linear(layer.v_proj, fout)
+    # qkv_proj = torch.cat((layer.q_proj.weight, layer.k_proj.weight, layer.v_proj.weight), dim=0).view(-1).tolist()
+    # qkv_bias = torch.cat((layer.q_proj.bias, layer.k_proj.bias, layer.v_proj.bias), dim=0).view(-1).tolist()
+    # bytes_written += fout.write(pack_num(qkv_proj))
+    # bytes_written += fout.write(pack_num(qkv_bias))
+    bytes_written += dump_linear(layer.q_proj, fout)
+    bytes_written += dump_linear(layer.k_proj, fout)
+    bytes_written += dump_linear(layer.v_proj, fout)
     bytes_written += dump_linear(layer.dense, fout)
     return bytes_written
 
@@ -103,19 +114,9 @@ def dump_phi_model(model: PhiForCausalLM, filename: str):
 
 
 if __name__ == "__main__":
-    config = PhiConfig(
-        vocab_size=3000,
-        hidden_size=16,
-        intermediate_size=32,
-        num_hidden_layers=5,
-        num_attention_heads=2,
-        max_position_embeddings=100,
-        rope_theta=10000,
-        partial_rotary_factor=0.4,
-    )
     # config = PhiConfig.from_pretrained("microsoft/phi-2")
     print("Creating model")
-    model = PhiForCausalLM(config=config)
+    model = PhiForCausalLM(config=TEST_CONFIG)
     for parameter in model.parameters():
         torch.nn.init.normal_(parameter)
     print("Dumping model")

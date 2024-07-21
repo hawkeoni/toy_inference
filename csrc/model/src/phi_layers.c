@@ -10,7 +10,7 @@ void calculate_attention(float *q, float *k, float *v, PhiDecoderRunState *decod
     for (unsigned int batch_idx = 0; batch_idx < input->batch_size; ++batch_idx) {
         unsigned int start_position = input->seq_starts[batch_idx], end_position = input->seq_starts[batch_idx] + input->seq_lens[batch_idx];
         unsigned int seq_len = input->seq_lens[batch_idx];
-        // matmul(q, k)
+        // matmul(q, k) - sims[i, j]
         for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
             for (unsigned int i = start_position; i < end_position; ++i) {
                 for (unsigned int j = start_position; j < end_position; ++j) {
@@ -39,20 +39,17 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
     but we have weight transposed, so
     output[i][j] = SUM_k x[i][k] * weight[j][k],
     */ 
-   // ALLOCATE THEM!!!
-    float *query_states, *key_states, *value_states; // [total_seq_len, d_model]
     // 1. Calculate projections
-    linear_op(attn->qkv_proj->weight, attn->qkv_proj->bias, x, decoder_state->qkv_proj_output, attn->qkv_proj->fan_in, attn->qkv_proj->fan_out, input->total_seq_len);
-
     // *_states - [total_seq_len, num_heads, head_dim]
-    query_states = decoder_state->qkv_proj_output;
-    key_states = decoder_state->qkv_proj_output + input->total_seq_len * attn->hidden_size;
-    value_states = key_states + input->total_seq_len * attn->hidden_size;
+    linear_op(attn->q_proj->weight, attn->q_proj->bias, x, decoder_state->query_states, attn->q_proj->fan_in, attn->q_proj->fan_out, input->total_seq_len);
+    linear_op(attn->k_proj->weight, attn->k_proj->bias, x, decoder_state->key_states, attn->k_proj->fan_in, attn->k_proj->fan_out, input->total_seq_len);
+    linear_op(attn->v_proj->weight, attn->v_proj->bias, x, decoder_state->value_states, attn->v_proj->fan_in, attn->v_proj->fan_out, input->total_seq_len);
+
 
     // 2. apply rotary embeddings
-    rotary_op(attn->remb->sin, attn->remb->cos, query_states, key_states, attn->remb->rotary_dim, attn->head_dim, input->total_seq_len);
+    rotary_op(attn->remb->sin, attn->remb->cos, decoder_state->query_states, decoder_state->key_states, attn->remb->rotary_dim, attn->head_dim, attn->num_heads, input->total_seq_len);
     // 3. calculate attention
-    calculate_attention(query_states, key_states, value_states, decoder_state, input, attn->num_heads, attn->head_dim, decoder_state->sims);
+    calculate_attention(decoder_state->query_states, decoder_state->key_states, decoder_state->value_states, decoder_state, input, attn->num_heads, attn->head_dim, decoder_state->sims);
     //attention_output, batch_size, seq_starts, seq_lens, total_seq_len, attn->num_heads, attn->head_dim);
     // 4. final linear
     linear_op(attn->dense->weight, attn->dense->bias, decoder_state->attention_output, decoder_state->dense_output, attn->dense->fan_in, attn->dense->fan_out, input->total_seq_len);
