@@ -8,8 +8,8 @@ void embedding_op(float *embeddings, unsigned int *token_ids, float *output, uns
     }
 }
 
-void apply_linear(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len) {
-// void apply_linear(LinearLayer *ll, float *x, float *output, unsigned int total_seq_len) {
+void linear_op(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len) {
+// void linear_op(LinearLayer *ll, float *x, float *output, unsigned int total_seq_len) {
     /*
     ll->weight - [fan_out, fan_in]
     ll->bias - [fan_out]
@@ -30,24 +30,24 @@ void apply_linear(float *weight, float *bias, float *x, float *output, unsigned 
    }
 }
 
-void add_residual(float *pre_ln_x, float *ffn_result, float *attention_output, float *output, unsigned int total_seq_len, unsigned int hidden_size) {
+void sum_3_op(float *pre_ln_x, float *ffn_result, float *attention_output, float *output, unsigned int total_seq_len, unsigned int hidden_size) {
     for (unsigned int idx = 0; idx < total_seq_len * hidden_size; ++idx) {
         output[idx] += pre_ln_x[idx] + ffn_result[idx] + attention_output[idx];
     }
 }
 
-void apply_gelu(float *x, float *output, unsigned int size) {
+void gelu_op(float *x, float *output, unsigned int size) {
     for (unsigned int idx = 0; idx < size; ++idx) {
         output[idx] = 0.5 * x[idx] * (1 + tanhf(sqrtf(2 / M_PI) * (x[idx] + 0.044715f * pow(x[idx], 3))));
     }
 }
-void apply_gelu_inplace(float *x, unsigned int size) {
+void gelu_op_inplace(float *x, unsigned int size) {
     for (unsigned int idx = 0; idx < size; ++idx) {
         x[idx] = 0.5 * x[idx] * (1 + tanhf(sqrtf(2 / M_PI) * (x[idx] + 0.044715f * pow(x[idx], 3))));
     }
 }
 
-void apply_layernorm(float *gamma, float *beta, float epsilon, float *x, float *output, unsigned int hidden_size, unsigned int total_seq_len) {
+void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *output, unsigned int hidden_size, unsigned int total_seq_len) {
     /*
     x - [total_seq_len * d_model]
     output - [total_seq_len * d_model]
@@ -71,7 +71,7 @@ void apply_layernorm(float *gamma, float *beta, float epsilon, float *x, float *
     }
 }
 
-void apply_rot_pos_emb(float *sin, float *cos, float *q_embed, float *k_embed, unsigned int rotary_dim, unsigned int head_dim, unsigned int total_seq_len) {
+void rotary_op(float *sin, float *cos, float *q_embed, float *k_embed, unsigned int rotary_dim, unsigned int head_dim, unsigned int total_seq_len) {
     // remb cos sin - [max_position_embeddings * rotary_dim]
     // query_rot - [total_seq_len * d_model] = [total_seq_len * num_heads * head_dim]
     // rotary_dim <= head_dim

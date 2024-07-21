@@ -42,7 +42,7 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
    // ALLOCATE THEM!!!
     float *query_states, *key_states, *value_states; // [total_seq_len, d_model]
     // 1. Calculate projections
-    apply_linear(attn->qkv_proj->weight, attn->qkv_proj->bias, x, decoder_state->qkv_proj_output, attn->qkv_proj->fan_in, attn->qkv_proj->fan_out, input->total_seq_len);
+    linear_op(attn->qkv_proj->weight, attn->qkv_proj->bias, x, decoder_state->qkv_proj_output, attn->qkv_proj->fan_in, attn->qkv_proj->fan_out, input->total_seq_len);
 
     // *_states - [total_seq_len, num_heads, head_dim]
     query_states = decoder_state->qkv_proj_output;
@@ -50,22 +50,22 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
     value_states = key_states + input->total_seq_len * attn->hidden_size;
 
     // 2. apply rotary embeddings
-    apply_rot_pos_emb(attn->remb->sin, attn->remb->cos, query_states, key_states, attn->remb->rotary_dim, attn->head_dim, input->total_seq_len);
+    rotary_op(attn->remb->sin, attn->remb->cos, query_states, key_states, attn->remb->rotary_dim, attn->head_dim, input->total_seq_len);
     // 3. calculate attention
     calculate_attention(query_states, key_states, value_states, decoder_state, input, attn->num_heads, attn->head_dim, decoder_state->sims);
     //attention_output, batch_size, seq_starts, seq_lens, total_seq_len, attn->num_heads, attn->head_dim);
     // 4. final linear
-    apply_linear(attn->dense->weight, attn->dense->bias, decoder_state->attention_output, decoder_state->dense_output, attn->dense->fan_in, attn->dense->fan_out, input->total_seq_len);
+    linear_op(attn->dense->weight, attn->dense->bias, decoder_state->attention_output, decoder_state->dense_output, attn->dense->fan_in, attn->dense->fan_out, input->total_seq_len);
 }
 
 
 void apply_decoder(PhiDecoderLayer *decoder_layer, float *hidden_states, PhiDecoderRunState *decoder_state, PhiModelInput *input) {
-    apply_layernorm(decoder_layer->preln->gamma, decoder_layer->preln->beta, decoder_layer->preln->epsilon, hidden_states, decoder_state->pre_ln_result, decoder_layer->preln->hidden_size, input->total_seq_len);
+    layernorm_op(decoder_layer->preln->gamma, decoder_layer->preln->beta, decoder_layer->preln->epsilon, hidden_states, decoder_state->pre_ln_result, decoder_layer->preln->hidden_size, input->total_seq_len);
     apply_attention(decoder_layer->attention_layer, decoder_state, input, decoder_state->pre_ln_result);
-    apply_linear(decoder_layer->fc1->weight, decoder_layer->fc1->bias, decoder_state->pre_ln_result, decoder_state->ffn_intermediate, decoder_layer->fc1->fan_in, decoder_layer->fc1->fan_out, input->total_seq_len);
-    apply_gelu(decoder_state->ffn_intermediate, decoder_state->activations, input->total_seq_len * decoder_layer->intermediate_dim);
-    apply_linear(decoder_layer->fc2->weight, decoder_layer->fc2->bias, decoder_state->attention_output, decoder_state->ffn_intermediate, decoder_layer->fc2->fan_in, decoder_layer->fc2->fan_out, input->total_seq_len);
-    add_residual(hidden_states, decoder_state->ffn_result, decoder_state->attention_output, decoder_state->output, input->total_seq_len, decoder_layer->hidden_size);
+    linear_op(decoder_layer->fc1->weight, decoder_layer->fc1->bias, decoder_state->pre_ln_result, decoder_state->ffn_intermediate, decoder_layer->fc1->fan_in, decoder_layer->fc1->fan_out, input->total_seq_len);
+    gelu_op(decoder_state->ffn_intermediate, decoder_state->activations, input->total_seq_len * decoder_layer->intermediate_dim);
+    linear_op(decoder_layer->fc2->weight, decoder_layer->fc2->bias, decoder_state->attention_output, decoder_state->ffn_intermediate, decoder_layer->fc2->fan_in, decoder_layer->fc2->fan_out, input->total_seq_len);
+    sum_3_op(hidden_states, decoder_state->ffn_result, decoder_state->attention_output, decoder_state->output, input->total_seq_len, decoder_layer->hidden_size);
 }
 
 
@@ -76,5 +76,5 @@ void apply_model(PhiModel *model, PhiModelRunState *state, PhiModelInput *input)
         apply_decoder(model->decoder_layers[layer_idx], decoder_input, state->decoder_run_states + layer_idx, input);
         decoder_input = (state->decoder_run_states + layer_idx)->output;
     }
-    apply_layernorm(model->final_layernorm->gamma, model->final_layernorm->beta, model->final_layernorm->epsilon, (state->decoder_run_states + model->config->num_hidden_layers - 1)->output, state->hidden_states, model->final_layernorm->hidden_size, input->total_seq_len);
+    layernorm_op(model->final_layernorm->gamma, model->final_layernorm->beta, model->final_layernorm->epsilon, (state->decoder_run_states + model->config->num_hidden_layers - 1)->output, state->hidden_states, model->final_layernorm->hidden_size, input->total_seq_len);
 }
