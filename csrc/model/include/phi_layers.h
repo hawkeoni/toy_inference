@@ -106,9 +106,9 @@ typedef struct {
 } PhiModelRunState;
 
 typedef struct {
-    unsigned int *token_ids;
     unsigned int batch_size;
     unsigned int total_seq_len;
+    unsigned int *token_ids;
     unsigned int *seq_starts;
     unsigned int *seq_lens;
 } PhiModelInput;

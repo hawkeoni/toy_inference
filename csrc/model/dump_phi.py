@@ -1,5 +1,5 @@
 import struct
-from typing import List
+from typing import List, Union
 
 import torch
 import torch.nn as nn
@@ -15,12 +15,14 @@ def calculate_model_params(model: PhiForCausalLM):
         total_params += param.numel()
     return total_params
 
-def pack_float(vec: List[float]):
-    return struct.pack(f"<{len(vec)}f", *vec)
+def pack_num(vec: List[Union[float, int]]):
+    # unsigned int
+    modifier = "f" if isinstance(vec[0], float) else "I"
+    return struct.pack(f"<{len(vec)}{modifier}", *vec)
 
 def dump_config(config: PhiConfig, fout):
     float_params = [
-        config.rope_theta,
+        float(config.rope_theta),
         config.partial_rotary_factor,
         config.layer_norm_eps,
 
@@ -37,41 +39,41 @@ def dump_config(config: PhiConfig, fout):
         head_dim,
     ]
     bytes_written = 0
-    bytes_written += fout.write(pack_float(float_params))
+    bytes_written += fout.write(pack_num(float_params))
     bytes_written += fout.write(struct.pack(f"<{len(int_params)}i", *int_params))
     return bytes_written
 
 def dump_linear(layer: nn.Linear, fout):
     w = layer.weight.view(-1).tolist()
-    bytes_written = fout.write(pack_float(w))
+    bytes_written = fout.write(pack_num(w))
     if layer.bias is not None:
         bias = layer.bias.tolist()
-        bytes_written += fout.write(pack_float(bias))
+        bytes_written += fout.write(pack_num(bias))
     return bytes_written
 
 def dump_embedding(layer: nn.Embedding, fout):
     w = layer.weight.view(-1).tolist()
-    return fout.write(pack_float(w))
+    return fout.write(pack_num(w))
 
 def dump_ln(layer: nn.LayerNorm, fout):
     w = layer.weight.tolist()
     bias = layer.bias.tolist()
-    bytes_written = fout.write(pack_float(w))
-    bytes_written += fout.write(pack_float(bias))
+    bytes_written = fout.write(pack_num(w))
+    bytes_written += fout.write(pack_num(bias))
     return bytes_written
 
 def dump_rotary(layer: PhiRotaryEmbedding, fout):
-    bytes_written = fout.write(pack_float(layer.cos_cached.view(-1).tolist()))
-    bytes_written += fout.write(pack_float(layer.sin_cached.view(-1).tolist()))
-    bytes_written += fout.write(pack_float(layer.inv_freq.view(-1).tolist()))
+    bytes_written = fout.write(pack_num(layer.cos_cached.view(-1).tolist()))
+    bytes_written += fout.write(pack_num(layer.sin_cached.view(-1).tolist()))
+    bytes_written += fout.write(pack_num(layer.inv_freq.view(-1).tolist()))
     return bytes_written
 
 def dump_attention(layer: PhiAttention, fout):
     bytes_written = dump_rotary(layer.rotary_emb, fout)
     qkv_proj = torch.cat((layer.q_proj.weight, layer.k_proj.weight, layer.v_proj.weight), dim=0).view(-1).tolist()
     qkv_bias = torch.cat((layer.q_proj.bias, layer.k_proj.bias, layer.v_proj.bias), dim=0).view(-1).tolist()
-    bytes_written += fout.write(pack_float(qkv_proj))
-    bytes_written += fout.write(pack_float(qkv_bias))
+    bytes_written += fout.write(pack_num(qkv_proj))
+    bytes_written += fout.write(pack_num(qkv_bias))
     # bytes_written += dump_linear(layer.q_proj, fout)
     # bytes_written += dump_linear(layer.k_proj, fout)
     # bytes_written += dump_linear(layer.v_proj, fout)
@@ -112,5 +114,7 @@ if __name__ == "__main__":
         partial_rotary_factor=0.4,
     )
     model = PhiForCausalLM(config=config)
-    torch.save(model.state_dict(), "model.pt")
+    for parameter in model.parameters():
+        torch.nn.init.normal_(parameter)
     dump_phi_model(model, "model.bin")
+    torch.save(model.state_dict(), "model.pt")

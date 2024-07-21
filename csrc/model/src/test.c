@@ -30,9 +30,9 @@ int main(int argc, char **argv) {
     PhiModel *model = read_model("model.bin");
     PhiModelRunState *run_state = create_run_state(model->config, 10);
     PhiModelInput *input = (PhiModelInput*)malloc(sizeof(PhiModelInput));
-    int token_ids[] = {0, 1, 2, 3, 4, 5, 0, 1, 2, 3};
-    int seq_lens[] = {6, 4};
-    int seq_starts[] = {0, 6};
+    int token_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    int seq_lens[] = {5, 5};
+    int seq_starts[] = {0, 5};
     input->token_ids = (unsigned int*)malloc(sizeof(unsigned int) * 10);
     memcpy(input->token_ids, token_ids, 10 * sizeof(unsigned int));
     input->batch_size = 2;
