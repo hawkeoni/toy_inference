@@ -87,6 +87,8 @@ struct {
 
 typedef struct {
     float *pre_ln_result;
+    float *query_rot;
+    float *key_rot;
     float *attention_output;
     float *ffn_intermediate;
     float *activations;

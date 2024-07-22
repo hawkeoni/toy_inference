@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 
 #ifndef _OPS_CPU
 #define _OPS_CPU
@@ -9,6 +10,6 @@ void sum_3_op(float *pre_ln_x, float *ffn_result, float *attention_output, float
 void gelu_op(float *x, float *output, unsigned int size);
 void gelu_op_inplace(float *x, unsigned int size);
 void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *output, unsigned int hidden_size, unsigned int total_seq_len);
-void rotary_op(float *sin, float *cos, float *q_embed, float *k_embed, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int total_seq_len);
+void rotary_op(float *sin, float *cos, float *x, float *output, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int total_seq_len, unsigned int batch_size, unsigned int *seq_starts, unsigned int *seq_lens);
 
 #endif

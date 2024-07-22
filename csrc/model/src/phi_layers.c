@@ -47,9 +47,11 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
 
 
     // 2. apply rotary embeddings
-    rotary_op(attn->remb->sin, attn->remb->cos, decoder_state->query_states, decoder_state->key_states, attn->remb->rotary_dim, attn->head_dim, attn->num_heads, input->total_seq_len);
+    
+    rotary_op(attn->remb->sin, attn->remb->cos, decoder_state->query_states, decoder_state->query_rot, attn->remb->rotary_dim, attn->head_dim, attn->num_heads, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
+    rotary_op(attn->remb->sin, attn->remb->cos, decoder_state->key_states, decoder_state->key_rot, attn->remb->rotary_dim, attn->head_dim, attn->num_heads, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
     // 3. calculate attention
-    calculate_attention(decoder_state->query_states, decoder_state->key_states, decoder_state->value_states, decoder_state, input, attn->num_heads, attn->head_dim, decoder_state->sims);
+    calculate_attention(decoder_state->query_rot, decoder_state->key_rot, decoder_state->value_states, decoder_state, input, attn->num_heads, attn->head_dim, decoder_state->sims);
     //attention_output, batch_size, seq_starts, seq_lens, total_seq_len, attn->num_heads, attn->head_dim);
     // 4. final linear
     linear_op(attn->dense->weight, attn->dense->bias, decoder_state->attention_output, decoder_state->dense_output, attn->dense->fan_in, attn->dense->fan_out, input->total_seq_len);

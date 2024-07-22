@@ -61,32 +61,35 @@ void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *out
     }
 }
 
-void rotary_op(float *sin, float *cos, float *q_embed, float *k_embed, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int total_seq_len) {
-    // remb cos sin - [max_position_embeddings * rotary_dim]
-    // q_embed - [total_seq_len, num_heads, head_dim]
+void rotary_op(float *sin, float *cos, float *x, float *output, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens) {
+    // remb cos sin - [max_position_embeddings, rotary_dim]
+    // x - [total_seq_len, num_heads, head_dim]
     // rotary_dim <= head_dim
     // add positions
     // ERROR - embeddings applied along global dim instead of head dim
     unsigned int half_rot_dim = rotary_dim / 2;
     unsigned int global_idx;
-    for (unsigned int seq_idx = 0; seq_idx < total_seq_len; ++seq_idx) {
-        for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
-            for (unsigned int dim_idx = 0; dim_idx < rotary_dim; ++dim_idx) {
-                global_idx = seq_idx * num_heads * head_dim + head_idx * head_dim + dim_idx;
-                // global_idx is a global index that represents q_embed[seq_idx, head_idx, dim_idx]
+    unsigned int idx, rotated_idx;
+    memcpy(output, x, sizeof(float) * total_seq_len * num_heads * head_dim);
+    for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+        unsigned int global_token_position = seq_starts[batch_idx];
+        for (unsigned int local_token_position = 0; local_token_position < seq_lens[batch_idx]; ++local_token_position) {
+            for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
+                for (unsigned int dim_idx = 0; dim_idx < rotary_dim; ++dim_idx) {
+                    idx = (global_token_position + local_token_position) * num_heads * head_dim + head_idx * head_dim + dim_idx;
 
+                    rotated_idx = (global_token_position + local_token_position) * num_heads * head_dim + head_idx * head_dim 
+                    + (half_rot_dim + dim_idx) % rotary_dim;
+
+                    output[idx] = x[idx] * cos[local_token_position * rotary_dim + dim_idx];
+                    if (dim_idx < half_rot_dim) {
+                        output[idx] -= x[rotated_idx] * sin[local_token_position * rotary_dim + dim_idx];
+                    }
+                    else {
+                        output[idx] += x[rotated_idx] * sin[local_token_position * rotary_dim + dim_idx];
+                    }
+                }
             }
         }
     }
-
-        // // TODO: FIX
-        // // unsigned int local_position = positions[seq_idx];
-        // unsigned int local_position = 0;
-        //     unsigned int idx = local_position * head_dim + dim_idx;
-        //     q_embed[idx] = q_embed[idx] * cos[local_position * rotary_dim + idx] -
-        //     q_embed[idx + head_dim] * sin[local_position * rotary_dim + idx];
-        //     k_embed[idx] = k_embed[idx] * cos[local_position * rotary_dim + idx] -
-        //     k_embed[idx + head_dim] * sin[local_position * rotary_dim + idx];
-        // }
-    // }
 }
