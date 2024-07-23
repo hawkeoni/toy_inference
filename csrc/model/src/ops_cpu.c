@@ -111,11 +111,11 @@ void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, un
         for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
             // TODO: Absolutely forgot about head_idx
             for (unsigned int i = start_position; i < end_position; ++i) {
-                for (unsigned int j = start_position; j < end_position; ++j) {
+                for (unsigned int j = start_position; j <= i; ++j) {
                     for (unsigned int inner = 0; inner < head_dim; ++inner) {
                         // q - [total_seq_len, num_heads, head_dim]
-                        sims[i * total_seq_len * num_heads + j * num_heads + head_idx] += q[(start_position + i) * num_heads * head_dim + head_idx * head_dim + inner] * 
-                        k[(start_position + j) * num_heads * head_dim + head_idx * head_dim + inner];
+                        sims[i * total_seq_len * num_heads + j * num_heads + head_idx] += q[i * num_heads * head_dim + head_idx * head_dim + inner] * 
+                        k[j * num_heads * head_dim + head_idx * head_dim + inner];
                     }
                     sims[i * total_seq_len * num_heads + j * num_heads + head_idx] /= head_dim_root;
                     // sims[i * total_seq_len * num_heads + j * num_heads + head_idx] = expf(sims[i * total_seq_len * num_heads + j * num_heads + head_idx]);
@@ -125,15 +125,15 @@ void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, un
             for (unsigned int i = start_position; i < end_position; ++i) {
                 row_sum = 0;
                 max_row_val = -1000.;
-                for (unsigned int j = start_position; j < end_position; ++j) {
+                for (unsigned int j = start_position; j <= i; ++j) {
                     if (sims[i * total_seq_len * num_heads + j * num_heads + head_idx] > max_row_val) {
                         max_row_val = sims[i * total_seq_len * num_heads + j * num_heads + head_idx];
                     }
                 }
-                for (unsigned int j = start_position; j < end_position; ++j) {
+                for (unsigned int j = start_position; j <= i; ++j) {
                     row_sum += expf(sims[i * total_seq_len * num_heads + j * num_heads + head_idx] - max_row_val);
                 }
-                for (unsigned int j = start_position; j < end_position; ++j) {
+                for (unsigned int j = start_position; j <= i; ++j) {
                     sims[i * total_seq_len * num_heads + j * num_heads + head_idx] = expf(sims[i * total_seq_len * num_heads + j * num_heads + head_idx] - max_row_val) / row_sum;
                 }
             }
@@ -149,12 +149,10 @@ void calculate_weighted_sum(float *v, float *sims, float *output, unsigned int b
         // output, v - [total_seq_len, num_heads, head_dim] = [total_seq_len, hidden_dim]
         for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
             for (unsigned int i = start_position; i < end_position; ++i) {
-                for (unsigned int j = start_position; j < end_position; ++j) {
+                for (unsigned int j = start_position; j <= i; ++j) {
                     // so output[i] = Sum_j sims[i][j] * v[j]
                     for (unsigned int inner = 0; inner < head_dim; ++inner) {
-                        output[i * num_heads * head_dim + head_idx * head_dim + inner] += sims[i * total_seq_len * num_heads + j * num_heads + head_dim] * v[i * num_heads * head_dim + head_idx * head_dim + inner];
-                        // output[i * num_heads * head_dim + head_idx * head_dim + inner] += sims[i * total_seq_len + j] * v[i * num_heads * head_dim + head_idx * head_dim + inner];
-                        // sims[i * total_seq_len + j] += q[(start_position + i) * num_heads * head_dim + inner] * k[(start_position + j) * num_heads * head_dim + inner];
+                        output[i * num_heads * head_dim + head_idx * head_dim + inner] += sims[i * total_seq_len * num_heads + j * num_heads + head_idx] * v[j * num_heads * head_dim + head_idx * head_dim + inner];
                     }
                 }
             }
