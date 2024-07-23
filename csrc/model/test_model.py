@@ -1,3 +1,4 @@
+import math
 import random
 from pathlib import Path
 
@@ -5,6 +6,7 @@ import pytest
 
 import torch
 from transformers import PhiConfig, PhiForCausalLM, AutoTokenizer
+from transformers.models.phi.modeling_phi import apply_rotary_pos_emb
 from itertools import product
 
 from dump_phi import pack_num, unpack_float, TEST_CONFIG
@@ -32,6 +34,50 @@ TEST_DATA_DIR = Path("test_data")
 # LAYERS = list(range(TEST_CONFIG.num_hidden_layers))
 LAYERS = [0]
 
+
+def add_intermediate_to_trace(model: PhiForCausalLM, trace):
+    position_ids = torch.arange(
+        0, 5, dtype=torch.long
+    )
+    position_ids = position_ids.unsqueeze(0)
+    for layer_idx, layer in enumerate(model.model.layers):
+        bsz, q_len, _ = trace[f"model.layers.{layer_idx}.self_attn.q_proj"].shape
+        query_states = trace[f"model.layers.{layer_idx}.self_attn.q_proj"].view(bsz, q_len, layer.self_attn.num_heads, layer.self_attn.head_dim).transpose(1, 2)
+        key_states = trace[f"model.layers.{layer_idx}.self_attn.k_proj"].view(bsz, q_len, layer.self_attn.num_heads, layer.self_attn.head_dim).transpose(1, 2)
+        value_states = trace[f"model.layers.{layer_idx}.self_attn.v_proj"].view(bsz, q_len, layer.self_attn.num_heads, layer.self_attn.head_dim).transpose(1, 2)
+        kv_seq_len = q_len
+        cos, sin = layer.self_attn.rotary_emb(value_states, seq_len=kv_seq_len)
+        query_rot, query_pass = (
+            query_states[..., : layer.self_attn.rotary_emb.dim],
+            query_states[..., layer.self_attn.rotary_emb.dim :],
+        )
+        key_rot, key_pass = (
+            key_states[..., : layer.self_attn.rotary_emb.dim],
+            key_states[..., layer.self_attn.rotary_emb.dim :],
+        )
+        # [batch_size, num_heads, seq_length, head_dim // config.partial_rotary_factor]
+        # {state_type}_rot_{layer_idx}
+        query_rot, key_rot = apply_rotary_pos_emb(query_rot, key_rot, cos, sin, position_ids)
+        query_states = torch.cat((query_rot, query_pass), dim=-1)
+        key_states = torch.cat((key_rot, key_pass), dim=-1)
+
+        # batch_size, seq_len, num_heads, head_dim
+        tq = query_states.transpose(1, 2).reshape(-1)
+        tk = key_states.transpose(1, 2).reshape(-1)
+        trace[f"query_rot_{layer_idx}"] = tq
+        trace[f"key_rot_{layer_idx}"] = tk
+
+        attn_weights = torch.matmul(
+            query_states.to(torch.float32), key_states.to(torch.float32).transpose(2, 3)
+        ) / math.sqrt(layer.self_attn.head_dim)
+        trace[f"sims_{layer_idx}"] = attn_weights
+
+
+
+
+
+        
+
 @pytest.fixture
 def trace():
     model = PhiForCausalLM(config=TEST_CONFIG)
@@ -43,6 +89,7 @@ def trace():
             layer.register_forward_hook(get_log_hook(name, trace_dict))
     with torch.no_grad():
         model(torch.LongTensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]]))
+        add_intermediate_to_trace(model, trace_dict)
     return trace_dict
 
 
@@ -72,6 +119,19 @@ def test_attn_projections(layer_idx, state_type, trace):
     proj_real = trace[f"model.layers.{layer_idx}.self_attn.{state_type[0]}_proj"].view(-1)
     _assert_allclose(proj_modeled, proj_real)
 
+
+@pytest.mark.parametrize("layer_idx,state_type", list(product(LAYERS, ["query", "key"])))
+def test_rotary(layer_idx, state_type, trace):
+    rot_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / f"{state_type}_rot_{layer_idx}.bin"))
+    rot_real = trace[f"{state_type}_rot_{layer_idx}"].view(-1)
+    _assert_allclose(rot_modeled, rot_real)
+
+
+@pytest.mark.parametrize("layer_idx", LAYERS)
+def test_sims(layer_idx, trace):
+    sims_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / f"sims_{layer_idx}.bin"))
+    sims_real = trace[f"sims_{layer_idx}"]
+    _assert_allclose(sims_modeled, sims_real)
 
 
 # def test_lm_head(trace):

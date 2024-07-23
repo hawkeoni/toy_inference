@@ -90,13 +90,13 @@ typedef struct {
     float *query_states, *key_states, *value_states;
     float *query_rot;
     float *key_rot;
+    float *sims;
     float *attention_output;
     float *ffn_intermediate;
     float *activations;
     float *ffn_result;
     float *dense_output;
     float *output;
-    float *sims;
     // float *weighted_sums;
 } PhiDecoderRunState;
 

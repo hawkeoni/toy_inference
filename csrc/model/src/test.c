@@ -69,6 +69,16 @@ int main(int argc, char **argv) {
 
         sprintf(filename, "test_data/value_states_%d.bin", layer_idx);
         dump_vector(decoder_state->value_states, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/query_rot_%d.bin", layer_idx);
+        dump_vector(decoder_state->query_rot, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/key_rot_%d.bin", layer_idx);
+        dump_vector(decoder_state->key_rot, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/sims_%d.bin", layer_idx);
+        dump_vector(decoder_state->sims, input->total_seq_len * input->total_seq_len, filename);
+
     }
 
     dump_vector(run_state->hidden_states, input->total_seq_len * model->config->hidden_size, "test_data/final_ln.bin");
