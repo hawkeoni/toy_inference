@@ -39,8 +39,8 @@ void apply_decoder(PhiDecoderLayer *decoder_layer, float *hidden_states, PhiDeco
     apply_attention(decoder_layer->attention_layer, decoder_state, input, decoder_state->pre_ln_result);
     linear_op(decoder_layer->fc1->weight, decoder_layer->fc1->bias, decoder_state->pre_ln_result, decoder_state->ffn_intermediate, decoder_layer->fc1->fan_in, decoder_layer->fc1->fan_out, input->total_seq_len);
     gelu_op(decoder_state->ffn_intermediate, decoder_state->activations, input->total_seq_len * decoder_layer->intermediate_dim);
-    linear_op(decoder_layer->fc2->weight, decoder_layer->fc2->bias, decoder_state->attention_output, decoder_state->ffn_intermediate, decoder_layer->fc2->fan_in, decoder_layer->fc2->fan_out, input->total_seq_len);
-    sum_3_op(hidden_states, decoder_state->ffn_result, decoder_state->attention_output, decoder_state->output, input->total_seq_len, decoder_layer->hidden_size);
+    linear_op(decoder_layer->fc2->weight, decoder_layer->fc2->bias, decoder_state->activations, decoder_state->ffn_result, decoder_layer->fc2->fan_in, decoder_layer->fc2->fan_out, input->total_seq_len);
+    sum_3_op(hidden_states, decoder_state->ffn_result, decoder_state->dense_output, decoder_state->output, input->total_seq_len, decoder_layer->hidden_size);
 }
 
 

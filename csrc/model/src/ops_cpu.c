@@ -11,6 +11,10 @@ void embedding_op(float *embeddings, unsigned int *token_ids, float *output, uns
 }
 
 void linear_op(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len) {
+   /* x - [total_seq_len, fan_in]
+     weight - [fan_out, fan_in]
+     output - [total_seq_len, fan_out]
+   */
    for (unsigned int i = 0; i < total_seq_len; ++i) {
         for (unsigned int j = 0; j < fan_out; ++j) {
             output[i * fan_out + j] = bias[j];

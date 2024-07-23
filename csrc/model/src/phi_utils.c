@@ -14,7 +14,7 @@ void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config
     decoder_state->attention_output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->ffn_intermediate = (float*)malloc(sizeof(float) * total_seq_len * config->intermediate_size);
     decoder_state->ffn_result = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    decoder_state->activations = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
+    decoder_state->activations = (float*)malloc(sizeof(float) * total_seq_len * config->intermediate_size);
     decoder_state->dense_output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->query_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);

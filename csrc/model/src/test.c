@@ -82,6 +82,18 @@ int main(int argc, char **argv) {
         sprintf(filename, "test_data/attention_output_%d.bin", layer_idx);
         dump_vector(decoder_state->attention_output, input->total_seq_len * model->config->hidden_size, filename);
 
+        sprintf(filename, "test_data/attention_output_%d.bin", layer_idx);
+        dump_vector(decoder_state->attention_output, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/attention_dense_output_%d.bin", layer_idx);
+        dump_vector(decoder_state->dense_output, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/decoder_output_%d.bin", layer_idx);
+        dump_vector(decoder_state->output, input->total_seq_len * model->config->hidden_size, filename);
+
+
+
+
     }
 
     dump_vector(run_state->hidden_states, input->total_seq_len * model->config->hidden_size, "test_data/final_ln.bin");

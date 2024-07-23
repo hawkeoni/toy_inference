@@ -32,8 +32,8 @@ def get_log_hook(layer_name, trace_dict):
     return log_hook
 
 TEST_DATA_DIR = Path("test_data")
-# LAYERS = list(range(TEST_CONFIG.num_hidden_layers))
-LAYERS = [0]
+LAYERS = list(range(TEST_CONFIG.num_hidden_layers))
+# LAYERS = [0]
 
 
 def add_intermediate_to_trace(model: PhiForCausalLM, trace):
@@ -166,8 +166,20 @@ def test_attention_output(layer_idx, trace):
     _assert_allclose(attn_output_modeled, attn_output_real)
 
 
+@pytest.mark.parametrize("layer_idx", LAYERS)
+def test_attn_dense_output(layer_idx, trace):
+    attn_dense_output_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / f"attention_dense_output_{layer_idx}.bin"))
+    attn_output_real = trace[f"model.layers.{layer_idx}.self_attn.dense"].view(-1)
+    _assert_allclose(attn_dense_output_modeled, attn_output_real)
 
-# def test_lm_head(trace):
-#     lm_head_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / "lm_head.bin"))
-#     lm_head_real = trace["lm_head"].view(-1)
-#     _assert_allclose(lm_head_modeled, lm_head_real)
+
+@pytest.mark.parametrize("layer_idx", LAYERS)
+def test_decoder_output(layer_idx, trace):
+    decoder_output_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / f"decoder_output_{layer_idx}.bin"))
+    decoder_output_real = trace[f"model.layers.{layer_idx}"][0].view(-1)
+    _assert_allclose(decoder_output_modeled, decoder_output_real)
+
+def test_lm_head(trace):
+    lm_head_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / "lm_head.bin"))
+    lm_head_real = trace["lm_head"].view(-1)
+    _assert_allclose(lm_head_modeled, lm_head_real)
