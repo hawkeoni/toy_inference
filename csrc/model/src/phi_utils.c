@@ -20,7 +20,7 @@ void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config
     decoder_state->query_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->key_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->value_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    decoder_state->sims = (float*)malloc(sizeof(float) * total_seq_len * total_seq_len);
+    decoder_state->sims = (float*)malloc(sizeof(float) * total_seq_len * total_seq_len * config->num_attention_heads);
     // decoder_state->weighted_sums = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
 }
 

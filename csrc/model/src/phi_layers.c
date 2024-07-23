@@ -2,59 +2,6 @@
 #include "ops_cpu.h"
 
 
-void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim) {
-    // q, k, v - [total_seq_len, num_heads, head_dim]
-    // output - [total_seq_len, num_heads, head_dim]
-    // sims - [total_seq_len, total_seq_len]
-    float row_sum;
-    float head_dim_root = sqrtf(head_dim);
-    for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
-        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
-        unsigned int seq_len = seq_lens[batch_idx];
-        // matmul(q, k) - sims[i, j]
-        for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
-            for (unsigned int i = start_position; i < end_position; ++i) {
-                for (unsigned int j = start_position; j < end_position; ++j) {
-                    for (unsigned int inner = 0; inner < head_dim; ++inner) {
-                        sims[i * total_seq_len + j] += q[(start_position + i) * num_heads * head_dim + inner] * k[(start_position + j) * num_heads * head_dim + inner];
-                    }
-                    sims[i * total_seq_len + j] /= head_dim_root;
-                    sims[i * total_seq_len + j] = expf(sims[i * total_seq_len + j]);
-                }
-            }
-            // head head_idx was calculated, we can now calculate softmax
-            row_sum = 0;
-            for (unsigned int i = start_position; i < end_position; ++i) {
-                for (unsigned int j = start_position; j < end_position; ++j) {
-                    row_sum += sims[i * total_seq_len + j];
-                }
-                for (unsigned int j = start_position; j < end_position; ++j) {
-                    sims[i * total_seq_len + j] /= row_sum;
-                }
-            }
-        }
-    }
-}
-
-void calculate_weighted_sum(float *v, float *sims, float *output, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim) {
-    for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
-        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
-        unsigned int seq_len = seq_lens[batch_idx];
-        // sims - [total_seq_len, total_seq_len]
-        // output, v - [total_seq_len, hidden_dim] = [total_seq_len, num_heads, head_dim]
-        for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
-            for (unsigned int i = start_position; i < end_position; ++i) {
-                for (unsigned int j = start_position; j < end_position; ++j) {
-                    // so output[i] = Sum_j sims[i][j] * v[j]
-                    for (unsigned int inner = 0; inner < head_dim; ++inner) {
-                        output[i * num_heads * head_dim + head_idx * head_dim + inner] += sims[i * total_seq_len + j] * v[i * num_heads * head_dim + head_idx * head_dim + inner];
-                        // sims[i * total_seq_len + j] += q[(start_position + i) * num_heads * head_dim + inner] * k[(start_position + j) * num_heads * head_dim + inner];
-                    }
-                }
-            }
-        }
-    }
-}
 
 void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiModelInput *input, float *x) {
     // apply_attention(decoder_layer->attention_layer, decoder_state, input);

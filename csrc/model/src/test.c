@@ -77,7 +77,10 @@ int main(int argc, char **argv) {
         dump_vector(decoder_state->key_rot, input->total_seq_len * model->config->hidden_size, filename);
 
         sprintf(filename, "test_data/sims_%d.bin", layer_idx);
-        dump_vector(decoder_state->sims, input->total_seq_len * input->total_seq_len, filename);
+        dump_vector(decoder_state->sims, input->total_seq_len * input->total_seq_len * model->config->num_attention_heads, filename);
+
+        sprintf(filename, "test_data/attention_output_%d.bin", layer_idx);
+        dump_vector(decoder_state->attention_output, input->total_seq_len * model->config->hidden_size, filename);
 
     }
 

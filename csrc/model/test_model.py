@@ -7,6 +7,7 @@ import pytest
 import torch
 from transformers import PhiConfig, PhiForCausalLM, AutoTokenizer
 from transformers.models.phi.modeling_phi import apply_rotary_pos_emb
+from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
 from itertools import product
 
 from dump_phi import pack_num, unpack_float, TEST_CONFIG
@@ -36,6 +37,7 @@ LAYERS = [0]
 
 
 def add_intermediate_to_trace(model: PhiForCausalLM, trace):
+    model.eval()
     position_ids = torch.arange(
         0, 5, dtype=torch.long
     )
@@ -67,10 +69,19 @@ def add_intermediate_to_trace(model: PhiForCausalLM, trace):
         trace[f"query_rot_{layer_idx}"] = tq
         trace[f"key_rot_{layer_idx}"] = tk
 
+        # batch, num_head, seq_len, seq_len
         attn_weights = torch.matmul(
             query_states.to(torch.float32), key_states.to(torch.float32).transpose(2, 3)
         ) / math.sqrt(layer.self_attn.head_dim)
-        trace[f"sims_{layer_idx}"] = attn_weights
+        attention_mask = _prepare_4d_causal_attention_mask(torch.ones(2, 5), (2, 5), trace["model.embed_tokens"], 0)
+        attn_weights = attn_weights + attention_mask
+        sims = torch.softmax(attn_weights, dim=3)
+        trace[f"sims_{layer_idx}"] = sims
+
+        attn_output = torch.matmul(sims, value_states).transpose(1, 2).contiguous().reshape(-1)
+
+        trace[f"attn_output_{layer_idx}"] = attn_output
+
 
 
 
@@ -127,11 +138,33 @@ def test_rotary(layer_idx, state_type, trace):
     _assert_allclose(rot_modeled, rot_real)
 
 
+# @pytest.mark.parametrize("layer_idx", LAYERS)
+# def test_sims(layer_idx, trace):
+#     # total_seq_len, total_seq_len, num_heads
+#     sims_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / f"sims_{layer_idx}.bin")).view(10, 10, 2)
+#     # batch, num_heads, seq_len, seq_len
+#     attention_mask = _prepare_4d_causal_attention_mask(torch.ones(2, 5), (2, 5), trace["model.embed_tokens"], 0)
+#     # batch, num_heads, seq_len, seq_len
+#     sims_real = trace[f"sims_{layer_idx}"]
+#     batch, n_heads, seq_len, _ = sims_real.shape
+#     sims_real = sims_real.permute(0, 2, 1, 3).reshape(-1)
+
+#     modeled = sims_modeled[:5, :5, 0]
+#     real = sims_real[0][0]
+
+#     sims_real = sims_real.permute(0, 2, 3, 1)
+
+
+    # sims_real += attention_mask
+    # sims_real = torch.softmax(sims_real, dim=3).permute(0, 2, 1, 3).reshape(-1)
+    # _assert_allclose(sims_modeled, sims_real)
+
 @pytest.mark.parametrize("layer_idx", LAYERS)
-def test_sims(layer_idx, trace):
-    sims_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / f"sims_{layer_idx}.bin"))
-    sims_real = trace[f"sims_{layer_idx}"]
-    _assert_allclose(sims_modeled, sims_real)
+def test_attention_output(layer_idx, trace):
+    attn_output_modeled = torch.Tensor(unpack_from_file(TEST_DATA_DIR / f"attention_output_{layer_idx}.bin"))
+    attn_output_real = trace[f"attn_output_{layer_idx}"].view(-1)
+    _assert_allclose(attn_output_modeled, attn_output_real)
+
 
 
 # def test_lm_head(trace):
