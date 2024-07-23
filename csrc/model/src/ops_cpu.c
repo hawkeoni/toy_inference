@@ -46,6 +46,7 @@ void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *out
     float mean = 0.0, var = 0.0;
     for (unsigned int position = 0; position < total_seq_len; ++position) {
         // we do not merge it into one pass for numerical stability
+        mean = 0; var = 0;
         for (unsigned int dim = 0; dim < hidden_size; ++dim) {
             mean += x[position * hidden_size + dim];
         }
@@ -56,7 +57,8 @@ void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *out
         }
         var /= hidden_size;
         for (unsigned int dim = 0; dim < hidden_size; ++dim) {
-            output[position * hidden_size + dim] = (x[position * hidden_size + dim] - mean) / (sqrtf(var + epsilon)) * gamma[dim] + beta[dim];
+            float root = sqrtf(var + epsilon);
+            output[position * hidden_size + dim] = (x[position * hidden_size + dim] - mean) / (root) * gamma[dim] + beta[dim];
         }
     }
 }

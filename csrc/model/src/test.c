@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "phi_layers.h"
 #include "phi_utils.h"
@@ -26,10 +27,17 @@ char test_embeddings(PhiModelRunState *state, PhiModelInput *input, PhiConfig *c
     return res;
 }
 
+void dump_vector(float *vec, unsigned int numel, char *filename) {
+    int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+    write(fd, vec, numel * sizeof(float));
+    close(fd);
+}
+
 int main(int argc, char **argv) {
     PhiModel *model = read_model("model.bin");
     PhiModelRunState *run_state = create_run_state(model->config, 10);
     PhiModelInput *input = (PhiModelInput*)malloc(sizeof(PhiModelInput));
+    char filename[100];
     int token_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     int seq_lens[] = {5, 5};
     int seq_starts[] = {0, 5};
@@ -45,7 +53,29 @@ int main(int argc, char **argv) {
     apply_model(model, run_state, input);
     printf("The model forward is done\n");
 
-    // test_embeddings(run_state, input, model->config);
+    PhiDecoderRunState *decoder_state;
+
+    dump_vector(run_state->embedded_tokens, input->total_seq_len * model->config->hidden_size, "test_data/embeddings.bin");
+    for (unsigned int layer_idx = 0; layer_idx < model->config->num_hidden_layers; ++layer_idx) {
+        decoder_state = run_state->decoder_run_states + layer_idx;
+        sprintf(filename, "test_data/pre_ln_%d.bin", layer_idx);
+        dump_vector(decoder_state->pre_ln_result, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/query_states_%d.bin", layer_idx);
+        dump_vector(decoder_state->query_states, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/key_states_%d.bin", layer_idx);
+        dump_vector(decoder_state->key_states, input->total_seq_len * model->config->hidden_size, filename);
+
+        sprintf(filename, "test_data/value_states_%d.bin", layer_idx);
+        dump_vector(decoder_state->value_states, input->total_seq_len * model->config->hidden_size, filename);
+    }
+
+    dump_vector(run_state->hidden_states, input->total_seq_len * model->config->hidden_size, "test_data/final_ln.bin");
+    dump_vector(run_state->lm_head_output, input->total_seq_len * model->config->vocab_size, "test_data/lm_head.bin");
+
+
+
 
     return 0;
 }

@@ -2,30 +2,59 @@
 #include "ops_cpu.h"
 
 
-// void calculate_attention(float *q, float *k, float *v, float *output, unsigned int batch_size, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int total_seq_len, unsigned int num_heads, unsigned int head_dim) {
-void calculate_attention(float *q, float *k, float *v, PhiDecoderRunState *decoder_state, PhiModelInput *input, unsigned int num_heads, unsigned int head_dim, float *sims) {
+void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim) {
     // q, k, v - [total_seq_len, num_heads, head_dim]
     // output - [total_seq_len, num_heads, head_dim]
     // sims - [total_seq_len, total_seq_len]
-    for (unsigned int batch_idx = 0; batch_idx < input->batch_size; ++batch_idx) {
-        unsigned int start_position = input->seq_starts[batch_idx], end_position = input->seq_starts[batch_idx] + input->seq_lens[batch_idx];
-        unsigned int seq_len = input->seq_lens[batch_idx];
+    float row_sum;
+    float head_dim_root = sqrtf(head_dim);
+    for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
+        unsigned int seq_len = seq_lens[batch_idx];
         // matmul(q, k) - sims[i, j]
         for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
             for (unsigned int i = start_position; i < end_position; ++i) {
                 for (unsigned int j = start_position; j < end_position; ++j) {
                     for (unsigned int inner = 0; inner < head_dim; ++inner) {
-                        sims[i * input->total_seq_len + j] += q[(start_position + i) * num_heads * head_dim + inner] * k[(start_position + j) * num_heads * head_dim + inner];
+                        sims[i * total_seq_len + j] += q[(start_position + i) * num_heads * head_dim + inner] * k[(start_position + j) * num_heads * head_dim + inner];
                     }
-                    sims[i * input->total_seq_len + j] = expf(sims[i * input->total_seq_len + j]);
+                    sims[i * total_seq_len + j] /= head_dim_root;
+                    sims[i * total_seq_len + j] = expf(sims[i * total_seq_len + j]);
+                }
+            }
+            // head head_idx was calculated, we can now calculate softmax
+            row_sum = 0;
+            for (unsigned int i = start_position; i < end_position; ++i) {
+                for (unsigned int j = start_position; j < end_position; ++j) {
+                    row_sum += sims[i * total_seq_len + j];
+                }
+                for (unsigned int j = start_position; j < end_position; ++j) {
+                    sims[i * total_seq_len + j] /= row_sum;
                 }
             }
         }
-        // head
     }
-
 }
 
+void calculate_weighted_sum(float *v, float *sims, float *output, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim) {
+    for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
+        unsigned int seq_len = seq_lens[batch_idx];
+        // sims - [total_seq_len, total_seq_len]
+        // output, v - [total_seq_len, hidden_dim] = [total_seq_len, num_heads, head_dim]
+        for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
+            for (unsigned int i = start_position; i < end_position; ++i) {
+                for (unsigned int j = start_position; j < end_position; ++j) {
+                    // so output[i] = Sum_j sims[i][j] * v[j]
+                    for (unsigned int inner = 0; inner < head_dim; ++inner) {
+                        output[i * num_heads * head_dim + head_idx * head_dim + inner] += sims[i * total_seq_len + j] * v[i * num_heads * head_dim + head_idx * head_dim + inner];
+                        // sims[i * total_seq_len + j] += q[(start_position + i) * num_heads * head_dim + inner] * k[(start_position + j) * num_heads * head_dim + inner];
+                    }
+                }
+            }
+        }
+    }
+}
 
 void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiModelInput *input, float *x) {
     // apply_attention(decoder_layer->attention_layer, decoder_state, input);
@@ -51,8 +80,8 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
     rotary_op(attn->remb->sin, attn->remb->cos, decoder_state->query_states, decoder_state->query_rot, attn->remb->rotary_dim, attn->head_dim, attn->num_heads, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
     rotary_op(attn->remb->sin, attn->remb->cos, decoder_state->key_states, decoder_state->key_rot, attn->remb->rotary_dim, attn->head_dim, attn->num_heads, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
     // 3. calculate attention
-    calculate_attention(decoder_state->query_rot, decoder_state->key_rot, decoder_state->value_states, decoder_state, input, attn->num_heads, attn->head_dim, decoder_state->sims);
-    //attention_output, batch_size, seq_starts, seq_lens, total_seq_len, attn->num_heads, attn->head_dim);
+    calculate_sims(decoder_state->query_rot, decoder_state->key_rot, decoder_state->sims, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens, attn->num_heads, attn->head_dim);
+    calculate_weighted_sum(decoder_state->value_states, decoder_state->sims, decoder_state->attention_output, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens, attn->num_heads, attn->head_dim);
     // 4. final linear
     linear_op(attn->dense->weight, attn->dense->bias, decoder_state->attention_output, decoder_state->dense_output, attn->dense->fan_in, attn->dense->fan_out, input->total_seq_len);
 }
@@ -76,4 +105,5 @@ void apply_model(PhiModel *model, PhiModelRunState *state, PhiModelInput *input)
         decoder_input = (state->decoder_run_states + layer_idx)->output;
     }
     layernorm_op(model->final_layernorm->gamma, model->final_layernorm->beta, model->final_layernorm->epsilon, (state->decoder_run_states + model->config->num_hidden_layers - 1)->output, state->hidden_states, model->final_layernorm->hidden_size, input->total_seq_len);
+    linear_op(model->lm_head->weight, model->lm_head->bias, state->hidden_states, state->lm_head_output, model->config->hidden_size, model->config->vocab_size, input->total_seq_len);
 }

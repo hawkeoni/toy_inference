@@ -31,6 +31,9 @@ def pack_num(vec: List[Union[float, int]]):
     modifier = "f" if isinstance(vec[0], float) else "I"
     return struct.pack(f"<{len(vec)}{modifier}", *vec)
 
+def unpack_float(buf: bytes, size: int):
+    return struct.unpack(f"<{size}f", buf)
+
 def dump_config(config: PhiConfig, fout):
     float_params = [
         float(config.rope_theta),
