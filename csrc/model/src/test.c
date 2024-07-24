@@ -55,7 +55,7 @@ void dump_inputs(PhiModelInput *input, char *filename) {
 
 int main(int argc, char **argv)
 {
-    srand(0);
+    // srand(0);
     PhiModel *model = read_model("model.bin");
     PhiModelRunState *run_state; // = create_run_state(model->config, 10);
     PhiModelInput *input = (PhiModelInput *)malloc(sizeof(PhiModelInput));
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
         free(input->token_ids);
         free(input->seq_starts);
         free(input->seq_lens);
-        batch_size = (rand() + 1) % MAX_BATCH_SIZE;
+        batch_size = rand() % MAX_BATCH_SIZE + 1;
         input->batch_size = batch_size;
         input->total_seq_len = 0;
         input->seq_starts = (unsigned int *)malloc(sizeof(unsigned int) * batch_size);
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 
         for (batch_idx = 0; batch_idx < batch_size; ++batch_idx)
         {
-            seq_len = (rand() + 1) % MAX_SEQ_LEN;
+            seq_len = rand() % MAX_SEQ_LEN + 1;
             input->seq_lens[batch_idx] = seq_len;
             input->seq_starts[batch_idx] = input->total_seq_len;
             input->total_seq_len += seq_len;
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
         input->token_ids = (unsigned int *)malloc(sizeof(unsigned int) * input->total_seq_len);
         for (pos = 0; pos < input->total_seq_len; ++pos)
         {
-            input->token_ids[pos] = rand() % 3000;
+            input->token_ids[pos] = rand() % (model->config->vocab_size - 1);
         }
         run_state = create_run_state(model->config, input->total_seq_len);
         apply_model(model, run_state, input);
