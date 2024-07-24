@@ -34,7 +34,7 @@ PhiModelRunState* create_run_state(PhiConfig* config, unsigned int total_seq_len
         fill_decoder_run_state(run_state->decoder_run_states + layer_idx, config, total_seq_len);
     }
     run_state->hidden_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    run_state->lm_head_output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
+    run_state->lm_head_output = (float*)malloc(sizeof(float) * total_seq_len * config->vocab_size);
     return run_state;
 }
 
