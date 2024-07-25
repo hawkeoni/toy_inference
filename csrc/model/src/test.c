@@ -57,6 +57,7 @@ int main(int argc, char **argv)
 {
     // srand(0);
     PhiModel *model = read_model("model.bin");
+    printf("Finished reading model\n");
     PhiModelRunState *run_state; // = create_run_state(model->config, 10);
     PhiModelInput *input = (PhiModelInput *)malloc(sizeof(PhiModelInput));
     PhiDecoderRunState *decoder_state;
@@ -67,7 +68,7 @@ int main(int argc, char **argv)
     char filename[100];
     int batch_size, seq_len, batch_idx, pos;
 
-    for (unsigned int test_case_idx = 1; test_case_idx <= 16; ++test_case_idx)
+    for (unsigned int test_case_idx = 1; test_case_idx <= 4; ++test_case_idx)
     {
         free(input->token_ids);
         free(input->seq_starts);

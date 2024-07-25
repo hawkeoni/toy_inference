@@ -5,16 +5,17 @@ import torch
 import torch.nn as nn
 from transformers import PhiConfig, PhiForCausalLM
 from transformers.models.phi.modeling_phi import PhiAttention, PhiDecoderLayer, PhiRotaryEmbedding
+from tqdm import tqdm
 
 
 torch.manual_seed(0)
 
 TEST_CONFIG = PhiConfig(
     vocab_size=3000,
-    hidden_size=16,
-    intermediate_size=32,
-    num_hidden_layers=5,
-    num_attention_heads=2,
+    hidden_size=128,
+    intermediate_size=256,
+    num_hidden_layers=8,
+    num_attention_heads=16,
     max_position_embeddings=100,
     rope_theta=10000,
     partial_rotary_factor=0.5,
@@ -105,23 +106,33 @@ def dump_phi_model(model: PhiForCausalLM, filename: str):
     model_params = calculate_model_params(model)
     print(f"Model has {model_params} params corresponding to {4 * model_params} bytes")
     bytes_written = 0
-    with open(filename, "wb") as fout:
+    with open(filename + ".bin", "wb") as fout:
         bytes_written += dump_config(model.config, fout)
         bytes_written += dump_embedding(model.model.embed_tokens, fout)
-        for decoder_layer in model.model.layers:
+        for decoder_layer in tqdm(model.model.layers):
             bytes_written += dump_decoder_layer(decoder_layer, fout)
         bytes_written += dump_ln(model.model.final_layernorm, fout)
         bytes_written += dump_linear(model.lm_head, fout)
+    torch.save(model.state_dict(), filename + ".pt")
     print(f"Dumped {bytes_written} bytes")
 
 
 
 if __name__ == "__main__":
-    # config = PhiConfig.from_pretrained("microsoft/phi-2")
-    print("Creating model")
-    model = PhiForCausalLM(config=TEST_CONFIG)
-    for parameter in model.parameters():
-        torch.nn.init.normal_(parameter)
-    print("Dumping model")
-    dump_phi_model(model, "model.bin")
-    torch.save(model.state_dict(), "model.pt")
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+    small_test_model = PhiForCausalLM(config=TEST_CONFIG)
+    dump_phi_model(small_test_model, "small_test_model")
+
+    config = PhiConfig.from_pretrained("microsoft/phi-2")
+    config.num_hidden_layers = 1
+    model = PhiForCausalLM(config)
+    dump_phi_model(model, "test_model")
+
+    model = PhiForCausalLM.from_pretrained("microsoft/phi-2")
+    dump_phi_model(model, "model")
+    # import time
+    # start = time.time()
+    # model(torch.LongTensor(list(range(10))).unsqueeze(0))
+    # end = time.time()
+    # print(end - start)

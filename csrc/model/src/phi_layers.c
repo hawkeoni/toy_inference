@@ -2,7 +2,6 @@
 #include "ops_cpu.h"
 
 
-
 void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiModelInput *input, float *x) {
     // apply_attention(decoder_layer->attention_layer, decoder_state, input);
     /*
@@ -20,7 +19,6 @@ void apply_attention(PhiAttention *attn, PhiDecoderRunState *decoder_state, PhiM
     linear_op(attn->q_proj->weight, attn->q_proj->bias, x, decoder_state->query_states, attn->q_proj->fan_in, attn->q_proj->fan_out, input->total_seq_len);
     linear_op(attn->k_proj->weight, attn->k_proj->bias, x, decoder_state->key_states, attn->k_proj->fan_in, attn->k_proj->fan_out, input->total_seq_len);
     linear_op(attn->v_proj->weight, attn->v_proj->bias, x, decoder_state->value_states, attn->v_proj->fan_in, attn->v_proj->fan_out, input->total_seq_len);
-
 
     // 2. apply rotary embeddings
     

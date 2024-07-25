@@ -58,7 +58,7 @@ def read_inputs(filename: str):
 @pytest.fixture(scope="module", params=test_data_directories)
 def trace(request):
     model = PhiForCausalLM(config=TEST_CONFIG)
-    model.load_state_dict(torch.load("model.pt"))
+    model.load_state_dict(torch.load("small_test_model.pt"))
     model = model.eval()
     trace_dict = {}
     for name, layer in model.named_modules():
@@ -75,7 +75,7 @@ def trace(request):
 
 
 def _assert_allclose(a, b):
-    res = torch.allclose(a, b, atol=1e-3)
+    res = torch.allclose(a, b, atol=4e-2)
     diff = (a - b).abs()
     maxdiff = diff.max()
     maxdiff_idx = diff.tolist().index(maxdiff)

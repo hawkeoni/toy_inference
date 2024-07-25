@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 
 #ifndef _PHI_UTILS_UTILS
 #define _PHI_UTILS_UTILS 
@@ -17,4 +18,27 @@
         }                                                              \
     } while (0)
 
+#define TIME_FUNCTION_CALL(func, ...) \
+    do { \
+        time_t start, end; \
+        time(&start); \
+        func(__VA_ARGS__); \
+        time(&end); \
+        double dif = difftime(end, start); \
+        printf("Function %s took %f seconds to run.\n", #func, dif); \
+    } while (0)
+
+#define TIME_FUNCTION_CALL_AVG(func, ...) \
+    do { \
+        double total_time = 0.0; \
+        for (int i = 0; i < 100; ++i) { \
+            time_t start, end; \
+            time(&start); \
+            func(__VA_ARGS__); \
+            time(&end); \
+            total_time += difftime(end, start); \
+        } \
+        double average_time = total_time / 100.0; \
+        printf("Function %s took total: %f, avg: %f seconds to run.\n", #func, total_time, average_time); \
+    } while (0)
 #endif
