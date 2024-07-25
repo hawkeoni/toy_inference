@@ -1,12 +1,10 @@
 #include "ops_cpu.h"
 #include <stdio.h>
+#include <omp.h>
 
 void embedding_op(float *embeddings, unsigned int *token_ids, float *output, unsigned int hidden_size, unsigned int total_seq_len) {
-    // TODO: memcpy speedup?
     for (unsigned int word_idx = 0; word_idx < total_seq_len; ++word_idx) {
-        for (unsigned int dim = 0; dim < hidden_size; ++dim) {
-            output[word_idx * hidden_size + dim] = embeddings[token_ids[word_idx] * hidden_size + dim];
-        }
+        memcpy(output + word_idx * hidden_size, embeddings + token_ids[word_idx] * hidden_size, hidden_size * sizeof(float));
     }
 }
 
@@ -49,19 +47,19 @@ void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *out
     output - [total_seq_len * d_model]
     */ 
     float delta;
-    float mean = 0.0, var = 0.0;
+    float mean = 0.0, var = 0.0, square_sum = 0.0;
+    #pragma omp parallel for
     for (unsigned int position = 0; position < total_seq_len; ++position) {
         // we do not merge it into one pass for numerical stability
-        mean = 0; var = 0;
+        mean = 0.0; var = 0.0; square_sum = 0.0;
         for (unsigned int dim = 0; dim < hidden_size; ++dim) {
             mean += x[position * hidden_size + dim];
+            square_sum += x[position * hidden_size + dim] * x[position * hidden_size + dim];
         }
+
+        var = (square_sum - mean * mean / hidden_size) / hidden_size;
         mean /= hidden_size;
-        for (unsigned int dim = 0; dim < hidden_size; ++dim) {
-            delta = x[position * hidden_size + dim] - mean;
-            var += delta * delta;
-        }
-        var /= hidden_size;
+        
         for (unsigned int dim = 0; dim < hidden_size; ++dim) {
             float root = sqrtf(var + epsilon);
             output[position * hidden_size + dim] = (x[position * hidden_size + dim] - mean) / (root) * gamma[dim] + beta[dim];

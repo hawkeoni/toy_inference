@@ -21,21 +21,6 @@ char compare_vectors(float *a, float *b, unsigned int size)
     return 1;
 }
 
-char test_embeddings(PhiModelRunState *state, PhiModelInput *input, PhiConfig *config)
-{
-    float *reference_embeddings = read_vector("test_data/embeddings.bin", input->total_seq_len * config->hidden_size);
-    char res = compare_vectors(state->embedded_tokens, reference_embeddings, input->total_seq_len * config->hidden_size);
-    if (!res)
-    {
-        perror("FAIL: test_embeddings\n");
-    }
-    else
-    {
-        printf("SUCCESS: test_embeddings\n");
-    }
-    return res;
-}
-
 void dump_vector(float *vec, unsigned int numel, char *filename)
 {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -56,7 +41,7 @@ void dump_inputs(PhiModelInput *input, char *filename) {
 int main(int argc, char **argv)
 {
     // srand(0);
-    PhiModel *model = read_model("model.bin");
+    PhiModel *model = read_model("small_test_model.bin");
     printf("Finished reading model\n");
     PhiModelRunState *run_state; // = create_run_state(model->config, 10);
     PhiModelInput *input = (PhiModelInput *)malloc(sizeof(PhiModelInput));
