@@ -14,4 +14,6 @@ void rotary_op(float *sin, float *cos, float *x, float *output, unsigned int rot
 void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim);
 void calculate_weighted_sum(float *v, float *sims, float *output, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim);
 
+void linear_op_omp(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len);
+void linear_op_omp_simd(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len);
 #endif

@@ -30,15 +30,16 @@
 
 #define TIME_FUNCTION_CALL_AVG(func, ...) \
     do { \
+        int num_iters = 1; \
         double total_time = 0.0; \
-        for (int i = 0; i < 100; ++i) { \
+        for (int i = 0; i < num_iters; ++i) { \
             time_t start, end; \
             time(&start); \
             func(__VA_ARGS__); \
             time(&end); \
             total_time += difftime(end, start); \
         } \
-        double average_time = total_time / 100.0; \
-        printf("Function %s took total: %f, avg: %f seconds to run.\n", #func, total_time, average_time); \
+        double average_time = total_time / num_iters; \
+        printf("Function %s took total: %fs, avg: %fs.\n", #func, total_time, average_time); \
     } while (0)
 #endif

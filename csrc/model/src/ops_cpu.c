@@ -8,20 +8,100 @@ void embedding_op(float *embeddings, unsigned int *token_ids, float *output, uns
     }
 }
 
+
+
 void linear_op(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len) {
-   /* x - [total_seq_len, fan_in]
-     weight - [fan_out, fan_in]
-     output - [total_seq_len, fan_out]
-   */
-   for (unsigned int i = 0; i < total_seq_len; ++i) {
+    // For 8x1024 by 2560 x 2560 I couldn't wait for this to finish
+    for (unsigned int i = 0; i < total_seq_len; ++i) {
         for (unsigned int j = 0; j < fan_out; ++j) {
             output[i * fan_out + j] = bias[j];
             for (unsigned int k = 0; k < fan_in; ++k) {
                 output[i * fan_out + j] += x[i * fan_in + k] * weight[j * fan_in + k];
             }
         }
-   }
+    }
 }
+
+
+void linear_op_omp(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len) {
+    unsigned int dim0 = total_seq_len * fan_out, i, j;
+
+    // this takes 11 seconds for 8x1024 by 2560 x 2560
+    #pragma omp parallel for
+    for (unsigned ij = 0; ij < dim0; ij++) {
+        i = ij / fan_out; j = ij % fan_out;
+        output[ij] = bias[j];
+        for (unsigned int k = 0; k < fan_in; ++k) {
+            output[i * fan_out + j] += x[i * fan_in + k] * weight[j * fan_in + k];
+        }
+    }
+}
+
+
+#if defined(__ARM_NEON)
+#include <arm_neon.h>
+// #include <Accelerate/Accelerate.h>
+
+void linear_op_omp_simd(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len) {
+    unsigned int dim0 = total_seq_len * fan_out, i, j;
+    float32x4_t sum_vec1, sum_vec2, sum_vec3, sum_vec4;
+    float32x4x4_t x_vec, weight_vec;
+    float temp1[4], temp2[4], temp3[4], temp4[4];
+
+    // this takes 1 second for 8x1024 by 2560 x 2560
+    #pragma omp parallel for private(i, j, sum_vec1, sum_vec2, sum_vec3, sum_vec4, x_vec, weight_vec, temp1, temp2, temp3, temp4)
+    for (unsigned int ij = 0; ij < dim0; ij++) {
+        i = ij / fan_out;
+        j = ij % fan_out;
+        output[ij] = bias[j];
+        sum_vec1 = vdupq_n_f32(0.0f);
+        sum_vec2 = vdupq_n_f32(0.0f);
+        sum_vec3 = vdupq_n_f32(0.0f);
+        sum_vec4 = vdupq_n_f32(0.0f);
+
+        unsigned int k;
+        for (k = 0; k <= fan_in - 16; k += 16) {
+            x_vec = vld1q_f32_x4(x + i * fan_in + k);
+            weight_vec = vld1q_f32_x4(weight + j * fan_in + k);
+            sum_vec1 = vmlaq_f32(sum_vec1, x_vec.val[0], weight_vec.val[0]);
+            sum_vec2 = vmlaq_f32(sum_vec2, x_vec.val[1], weight_vec.val[1]);
+            sum_vec3 = vmlaq_f32(sum_vec3, x_vec.val[2], weight_vec.val[2]);
+            sum_vec4 = vmlaq_f32(sum_vec4, x_vec.val[3], weight_vec.val[3]);
+        }
+
+        for (; k < fan_in; k += 4) {
+            x_vec.val[0] = vld1q_f32(x + i * fan_in + k);
+            weight_vec.val[0] = vld1q_f32(weight + j * fan_in + k);
+            sum_vec1 = vmlaq_f32(sum_vec1, x_vec.val[0], weight_vec.val[0]);
+        }
+
+        vst1q_f32(temp1, sum_vec1);
+        vst1q_f32(temp2, sum_vec2);
+        vst1q_f32(temp3, sum_vec3);
+        vst1q_f32(temp4, sum_vec4);
+        output[ij] += temp1[0] + temp1[1] + temp1[2] + temp1[3] + temp2[0] + temp2[1] + temp2[2] + temp2[3] + temp3[0] + temp3[1] + temp3[2] + temp3[3] + temp4[0] + temp4[1] + temp4[2] + temp4[3];
+    }
+    /*
+    unsigned int dim0 = total_seq_len * fan_out, i, j;
+    float32x4_t sum_vec, x_vec, weight_vec;
+    float temp[4];
+    // this takes 6 seconds for 8x1024 by 2560 x 2560
+    #pragma omp parallel for
+    for (unsigned ij = 0; ij < dim0; ij++) {
+        i = ij / fan_out; j = ij % fan_out;
+        output[ij] = bias[j];
+        sum_vec = vdupq_n_f32(0.0f);
+        for (unsigned int k = 0; k < fan_in; k += 4) {
+            x_vec = vld1q_f32(x + i * fan_in + k);
+            weight_vec = vld1q_f32(weight + j * fan_in + k);
+            sum_vec = vmlaq_f32(sum_vec, x_vec, weight_vec);
+        }
+        vst1q_f32(temp, sum_vec);
+        output[ij] += temp[0] + temp[1] + temp[2] + temp[3];
+    }
+    */
+}
+#endif
 
 
 void sum_3_op(float *pre_ln_x, float *ffn_result, float *attention_output, float *output, unsigned int total_seq_len, unsigned int hidden_size) {
@@ -56,12 +136,10 @@ void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *out
             mean += x[position * hidden_size + dim];
             square_sum += x[position * hidden_size + dim] * x[position * hidden_size + dim];
         }
-
         var = (square_sum - mean * mean / hidden_size) / hidden_size;
         mean /= hidden_size;
-        
+        float root = sqrtf(var + epsilon);
         for (unsigned int dim = 0; dim < hidden_size; ++dim) {
-            float root = sqrtf(var + epsilon);
             output[position * hidden_size + dim] = (x[position * hidden_size + dim] - mean) / (root) * gamma[dim] + beta[dim];
         }
     }
