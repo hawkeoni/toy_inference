@@ -129,6 +129,6 @@ typedef struct {
 } PhiModelInput;
 
 void apply_model_prefill(PhiModel *model, PhiModelRunState *state, PhiModelInput *input);
-
+unsigned int *model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInput *input);
 
 #endif

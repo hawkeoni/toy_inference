@@ -69,6 +69,10 @@ void apply_model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInpu
 
         rotary_op_gen(attn->remb->sin, attn->remb->cos, decoder_state->gen_query_states, decoder_state->query_rot, attn->remb->rotary_dim, model->config->head_dim, model->config->num_attention_heads, input->batch_size, input->seq_lens, generation_offset);
         rotary_op_gen(attn->remb->sin, attn->remb->cos, decoder_state->gen_key_states, decoder_state->key_rot, attn->remb->rotary_dim, model->config->head_dim, model->config->num_attention_heads, input->batch_size, input->seq_lens, generation_offset);
+        // concat K
+        // key_rot - (total_seq_len + tokens_to_generate, hidden_size)
+        // Нужно завести KV cache и хранить его со страйдами в tokens_to_generate, чтобы не было лишних копирований
+        // memcpy(decoder_state->key_rot, , sizeof(float) * hidden_size * input->batch)
         // TODO: concat K
         // TODO: Increase sims to be input_tokens + generated_tokens
         calculate_sims_gen(decoder_state->query_rot, decoder_state->key_rot, decoder_state->sims, input->batch_size, input->total_seq_len + generation_offset, input->seq_starts, input->seq_lens, model->config->num_attention_heads, model->config->head_dim, generation_offset);
@@ -105,13 +109,15 @@ void greedy_decode(float *lm_head_output, unsigned int *token_output, unsigned i
 }
 
 
-void model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInput *input) {
+unsigned int *model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInput *input) {
     PhiConfig *config = model->config;
     apply_model_prefill(model, state, input);
+    unsigned int *result = (unsigned int*)malloc(sizeof(unsigned int) * input->batch_size * input->tokens_to_generate);
     unsigned int eos_count = 0;
     for (unsigned int generated_token_idx = 0; generated_token_idx < input->tokens_to_generate; ++generated_token_idx) {
         greedy_decode(state->lm_head_output, state->token_out, config->vocab_size, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
         for (unsigned int batch_idx = 0; batch_idx < input->batch_size; ++batch_idx) {
+            result[batch_idx * input->tokens_to_generate + generated_token_idx] = state->token_out[batch_idx];
             if (state->token_out[batch_idx] == config->eos_token_id) {
                 eos_count += 1;
             }
@@ -123,4 +129,5 @@ void model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInput *inp
         apply_model_generate(model, state, input, state->embedded_tokens, generated_token_idx);
         linear_op_omp_simd(model->lm_head->weight, model->lm_head->bias, state->hidden_states, state->lm_head_output, model->config->hidden_size, model->config->vocab_size, input->total_seq_len);
     }
+    return result;
 }

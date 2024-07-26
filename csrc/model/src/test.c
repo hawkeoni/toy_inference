@@ -11,16 +11,6 @@
 #define MAX_BATCH_SIZE 16
 #define MAX_SEQ_LEN 64
 
-char compare_vectors(float *a, float *b, unsigned int size)
-{
-    for (unsigned int position = 0; position < size; ++position)
-    {
-        if (a[position] != b[position])
-            return 0;
-    }
-    return 1;
-}
-
 void dump_vector(float *vec, unsigned int numel, char *filename)
 {
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -38,6 +28,38 @@ void dump_inputs(PhiModelInput *input, char *filename) {
     close(fd);
 }
 
+/*
+int main(int argc, char **argv)
+{
+    PhiModel *model = read_model("small_test_model.bin");
+    PhiModelRunState *run_state;
+    PhiModelInput *input = (PhiModelInput *)malloc(sizeof(PhiModelInput));
+    input->batch_size = 1;
+    input->total_seq_len = 10;
+    input->tokens_to_generate = 2;
+    input->seq_starts = (unsigned int *)malloc(sizeof(unsigned int) * 1);
+    input->seq_lens = (unsigned int *)malloc(sizeof(unsigned int) * 1);
+    input->seq_starts[0] = 0;
+    input->seq_lens[0] = 10;
+    input->token_ids = (unsigned int *)malloc(sizeof(unsigned int) * input->total_seq_len);
+    for (int pos = 0; pos < input->total_seq_len; ++pos)
+    {
+        input->token_ids[pos] = pos;
+    }
+    run_state = create_run_state(model->config, input);
+    unsigned int *result = model_generate(model, run_state, input);
+
+    for (unsigned int batch_size = 0; batch_size < input->batch_size; ++batch_size) {
+        for (unsigned int pos = 0; pos < input->tokens_to_generate; ++pos) {
+            printf("%u ", result[batch_size * input->tokens_to_generate + pos]);
+        }
+        printf("\n");
+    }
+
+
+    return 0;
+}
+*/
 int main(int argc, char **argv)
 {
     // srand(0);

@@ -61,13 +61,11 @@ int main(int argc, char **argv)
     printf("Finished reading model\n");
     PhiModelRunState *run_state; // = create_run_state(model->config, 10);
     PhiModelInput *input = (PhiModelInput *)malloc(sizeof(PhiModelInput));
-    PhiDecoderRunState *decoder_state;
     input->token_ids = NULL;
     input->seq_starts = NULL;
     input->seq_lens = NULL;
 
-    char filename[100];
-    int batch_size, seq_len, batch_idx, pos;
+    int batch_size, pos;
 
     batch_size = 1;
     input->batch_size = batch_size;

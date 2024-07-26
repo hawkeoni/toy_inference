@@ -8,10 +8,10 @@
 
 
 void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config, PhiModelInput *input) {
-    unsigned int total_seq_len = input->total_seq_len, batch_size = input->batch_size;
+    unsigned int total_seq_len = input->total_seq_len, batch_size = input->batch_size, tokens_to_generate = input->tokens_to_generate;
     decoder_state->pre_ln_result = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    decoder_state->query_rot = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    decoder_state->key_rot = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
+    decoder_state->query_rot = (float*)malloc(sizeof(float) * (total_seq_len + tokens_to_generate) * config->hidden_size);
+    decoder_state->key_rot = (float*)malloc(sizeof(float) * (total_seq_len + tokens_to_generate) * config->hidden_size);
     decoder_state->attention_output = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->ffn_intermediate = (float*)malloc(sizeof(float) * total_seq_len * config->intermediate_size);
     decoder_state->ffn_result = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
@@ -21,17 +21,17 @@ void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config
     decoder_state->query_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->key_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->value_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    decoder_state->sims = (float*)malloc(sizeof(float) * total_seq_len * total_seq_len * config->num_attention_heads);
+    decoder_state->sims = (float*)malloc(sizeof(float) * (total_seq_len + tokens_to_generate) * (total_seq_len + tokens_to_generate) * config->num_attention_heads);
     decoder_state->gen_query_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
     decoder_state->gen_key_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
     decoder_state->gen_value_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
-    // decoder_state->weighted_sums = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
 }
 
 
 PhiModelRunState* create_run_state(PhiConfig* config, PhiModelInput *input) {
     PhiModelRunState *run_state = (PhiModelRunState*)malloc(sizeof(PhiModelRunState));
 
+    run_state->token_out = (unsigned int*)malloc(sizeof(unsigned int) * input->batch_size);
     run_state->embedded_tokens = (float*)malloc(sizeof(float) * input->total_seq_len * config->hidden_size);
     run_state->decoder_run_states = (PhiDecoderRunState*)malloc(config->num_hidden_layers * sizeof(PhiDecoderRunState));
     for (unsigned int layer_idx = 0; layer_idx < config->num_hidden_layers; ++layer_idx) {
@@ -105,6 +105,7 @@ PhiDecoderLayer* create_decoder_layer(LayerNorm *preln, PhiAttention *attn, Line
 
 PhiModel* read_model(char *filename) {
     int fd = open(filename, O_RDONLY);
+    printf("reading file %s %d\n", filename, fd);
     if (fd == -1) {
         perror("Failed to open file with the model");
         exit(1);
