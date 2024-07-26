@@ -7,7 +7,8 @@
 #include "utils.h"
 
 
-void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config, unsigned int total_seq_len, unsigned int batch_size) {
+void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config, PhiModelInput *input) {
+    unsigned int total_seq_len = input->total_seq_len, batch_size = input->batch_size;
     decoder_state->pre_ln_result = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->query_rot = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->key_rot = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
@@ -28,16 +29,16 @@ void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config
 }
 
 
-PhiModelRunState* create_run_state(PhiConfig* config, unsigned int total_seq_len, unsigned int batch_size) {
+PhiModelRunState* create_run_state(PhiConfig* config, PhiModelInput *input) {
     PhiModelRunState *run_state = (PhiModelRunState*)malloc(sizeof(PhiModelRunState));
 
-    run_state->embedded_tokens = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
+    run_state->embedded_tokens = (float*)malloc(sizeof(float) * input->total_seq_len * config->hidden_size);
     run_state->decoder_run_states = (PhiDecoderRunState*)malloc(config->num_hidden_layers * sizeof(PhiDecoderRunState));
     for (unsigned int layer_idx = 0; layer_idx < config->num_hidden_layers; ++layer_idx) {
-        fill_decoder_run_state(run_state->decoder_run_states + layer_idx, config, total_seq_len, batch_size);
+        fill_decoder_run_state(run_state->decoder_run_states + layer_idx, config, input);
     }
-    run_state->hidden_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    run_state->lm_head_output = (float*)malloc(sizeof(float) * total_seq_len * config->vocab_size);
+    run_state->hidden_states = (float*)malloc(sizeof(float) * input->total_seq_len * config->hidden_size);
+    run_state->lm_head_output = (float*)malloc(sizeof(float) * input->total_seq_len * config->vocab_size);
     return run_state;
 }
 

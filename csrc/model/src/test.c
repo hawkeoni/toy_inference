@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     // srand(0);
     PhiModel *model = read_model("small_test_model.bin");
     printf("Finished reading model\n");
-    PhiModelRunState *run_state; // = create_run_state(model->config, 10);
+    PhiModelRunState *run_state;
     PhiModelInput *input = (PhiModelInput *)malloc(sizeof(PhiModelInput));
     PhiDecoderRunState *decoder_state;
     input->token_ids = NULL;
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
         {
             input->token_ids[pos] = rand() % (model->config->vocab_size - 1);
         }
-        run_state = create_run_state(model->config, input->total_seq_len, input->batch_size);
+        run_state = create_run_state(model->config, input);
         apply_model_prefill(model, run_state, input);
         sprintf(filename, "test_data/test_%d", test_case_idx);
         mkdir(filename, 0777);

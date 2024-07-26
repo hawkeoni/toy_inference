@@ -114,6 +114,7 @@ typedef struct {
     PhiDecoderRunState *decoder_run_states;
     float *hidden_states;
     float *lm_head_output;
+    unsigned int *token_out;
 
 
 } PhiModelRunState;

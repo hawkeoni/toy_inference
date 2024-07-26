@@ -8,7 +8,7 @@
 #define INT_CONFIG_PARAMS_NUM 8
 
 PhiModel* read_model(char *filename);
-PhiModelRunState* create_run_state(PhiConfig* config, unsigned int total_seq_len, unsigned int batch_size);
+PhiModelRunState* create_run_state(PhiConfig* config, PhiModelInput *input);
 PhiModelInput* create_input();
 float* read_vector(char* filename, unsigned int size);
 

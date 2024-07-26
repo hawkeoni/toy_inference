@@ -81,7 +81,7 @@ int main(int argc, char **argv)
     {
         input->token_ids[pos] = pos;
     }
-    run_state = create_run_state(model->config, input->total_seq_len, input->batch_size);
+    run_state = create_run_state(model->config, input);
     time_t start, end;
     time(&start);
     apply_model_prefill(model, run_state, input);

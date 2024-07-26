@@ -81,8 +81,7 @@ void apply_model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInpu
         linear_op_omp_simd(decoder_layer->fc2->weight, decoder_layer->fc2->bias, decoder_state->activations, decoder_state->ffn_result, decoder_layer->fc2->fan_in, decoder_layer->fc2->fan_out, input->batch_size);
         sum_3_op(decoder_input, decoder_state->ffn_result, decoder_state->dense_output, decoder_state->output, input->batch_size, decoder_layer->hidden_size);
 
-        // todo - decoder input
-        // decoder_input = (state->decoder_run_states + layer_idx)->output;
+        decoder_input = (state->decoder_run_states + layer_idx)->output;
     }
 
 }
@@ -109,22 +108,19 @@ void greedy_decode(float *lm_head_output, unsigned int *token_output, unsigned i
 void model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInput *input) {
     PhiConfig *config = model->config;
     apply_model_prefill(model, state, input);
-    unsigned int *token_output;
-    float *generated_embeddings;
     unsigned int eos_count = 0;
     for (unsigned int generated_token_idx = 0; generated_token_idx < input->tokens_to_generate; ++generated_token_idx) {
-        greedy_decode(state->lm_head_output, token_output, config->vocab_size, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
+        greedy_decode(state->lm_head_output, state->token_out, config->vocab_size, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
         for (unsigned int batch_idx = 0; batch_idx < input->batch_size; ++batch_idx) {
-            if (token_output[batch_idx] == config->eos_token_id) {
+            if (state->token_out[batch_idx] == config->eos_token_id) {
                 eos_count += 1;
             }
         }
-        embedding_op(model->embedding_layer->embeddings, token_output, generated_embeddings, config->hidden_size, input->batch_size);
+        embedding_op(model->embedding_layer->embeddings, state->token_out, state->embedded_tokens, config->hidden_size, input->batch_size);
         if (eos_count == input->batch_size) {
             break;
         }
-        apply_model_generate(model, state, input, generated_embeddings, generated_token_idx);
-        // WHERE TO PUT THIS SHIT??
-        token_output = (state->decoder_run_states + model->config->num_hidden_layers - 1)->output;
+        apply_model_generate(model, state, input, state->embedded_tokens, generated_token_idx);
+        linear_op_omp_simd(model->lm_head->weight, model->lm_head->bias, state->hidden_states, state->lm_head_output, model->config->hidden_size, model->config->vocab_size, input->total_seq_len);
     }
 }
