@@ -1,7 +1,7 @@
-CC := gcc-14
-CCFLAGS := -fopenmp -O3 -framework Accelerate
+CC := clang
+CCFLAGS := -O3 -L/opt/homebrew/opt/libomp/lib -framework Accelerate
 SOURCE_FILES := src/phi_layers.c src/phi_utils.c src/ops_cpu.c
-INCLUDE_FLAGS := -Iinclude
+INCLUDE_FLAGS := -Iinclude -I/opt/homebrew/opt/libomp/include
 
 
 all: test 
@@ -10,6 +10,8 @@ test: $(SOURCE_FILES) src/test.c bin
 	$(CC) $(CCFLAGS) $(INCLUDE_FLAGS) $(SOURCE_FILES) src/test.c -o bin/test
 
 test_correctness: test
+	rm -rf test_data
+	mkdir test_data
 	./bin/test && pytest
 
 small_test: $(SOURCE_FILES) src/small_test.c bin

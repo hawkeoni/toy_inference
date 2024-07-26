@@ -119,20 +119,22 @@ def dump_phi_model(model: PhiForCausalLM, filename: str):
 
 
 if __name__ == "__main__":
-    torch.set_num_threads(1)
-    torch.set_num_interop_threads(1)
-    small_test_model = PhiForCausalLM(config=TEST_CONFIG)
-    dump_phi_model(small_test_model, "small_test_model")
+    # torch.set_num_threads(1)
+    # torch.set_num_interop_threads(1)
+    # small_test_model = PhiForCausalLM(config=TEST_CONFIG)
+    # dump_phi_model(small_test_model, "small_test_model")
 
-    config = PhiConfig.from_pretrained("microsoft/phi-2")
-    config.num_hidden_layers = 1
-    model = PhiForCausalLM(config)
-    dump_phi_model(model, "test_model")
+    # config = PhiConfig.from_pretrained("microsoft/phi-2")
+    # config.num_hidden_layers = 1
+    # model = PhiForCausalLM(config)
+    # dump_phi_model(model, "test_model")
 
-    model = PhiForCausalLM.from_pretrained("microsoft/phi-2")
-    dump_phi_model(model, "model")
-    # import time
-    # start = time.time()
-    # model(torch.LongTensor(list(range(10))).unsqueeze(0))
-    # end = time.time()
-    # print(end - start)
+    device = torch.device("cpu")
+    model = PhiForCausalLM.from_pretrained("microsoft/phi-2").to(device)
+    # dump_phi_model(model, "model")
+    import time
+    x = torch.LongTensor(list(range(1024))).unsqueeze(0).to(device)
+    start = time.time()
+    model(x)
+    end = time.time()
+    print(end - start)
