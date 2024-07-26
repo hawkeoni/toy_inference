@@ -31,7 +31,7 @@ int main(void) {
             input->token_ids[i * 1024 + j] = j;
         }
     }
-    PhiModelRunState *run_state = create_run_state(model->config, input->total_seq_len);
+    PhiModelRunState *run_state = create_run_state(model->config, input->total_seq_len, input->batch_size);
     PhiDecoderRunState *decoder_state = run_state->decoder_run_states;
     PhiAttention *attn = decoder_layer->attention_layer;
 

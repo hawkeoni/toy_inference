@@ -98,7 +98,13 @@ typedef struct {
     float *ffn_result;
     float *dense_output;
     float *output;
-    // float *weighted_sums;
+
+    float *gen_query_states;
+    float *gen_key_states;
+    float *gen_value_states;
+
+
+
 } PhiDecoderRunState;
 
 typedef struct {
@@ -108,6 +114,7 @@ typedef struct {
     PhiDecoderRunState *decoder_run_states;
     float *hidden_states;
     float *lm_head_output;
+
 
 } PhiModelRunState;
 

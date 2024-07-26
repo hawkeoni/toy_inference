@@ -7,7 +7,7 @@
 #include "utils.h"
 
 
-void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config, unsigned int total_seq_len) {
+void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config, unsigned int total_seq_len, unsigned int batch_size) {
     decoder_state->pre_ln_result = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->query_rot = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->key_rot = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
@@ -21,17 +21,20 @@ void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config
     decoder_state->key_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->value_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     decoder_state->sims = (float*)malloc(sizeof(float) * total_seq_len * total_seq_len * config->num_attention_heads);
+    decoder_state->gen_query_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
+    decoder_state->gen_key_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
+    decoder_state->gen_value_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
     // decoder_state->weighted_sums = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
 }
 
 
-PhiModelRunState* create_run_state(PhiConfig* config, unsigned int total_seq_len) {
+PhiModelRunState* create_run_state(PhiConfig* config, unsigned int total_seq_len, unsigned int batch_size) {
     PhiModelRunState *run_state = (PhiModelRunState*)malloc(sizeof(PhiModelRunState));
 
     run_state->embedded_tokens = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     run_state->decoder_run_states = (PhiDecoderRunState*)malloc(config->num_hidden_layers * sizeof(PhiDecoderRunState));
     for (unsigned int layer_idx = 0; layer_idx < config->num_hidden_layers; ++layer_idx) {
-        fill_decoder_run_state(run_state->decoder_run_states + layer_idx, config, total_seq_len);
+        fill_decoder_run_state(run_state->decoder_run_states + layer_idx, config, total_seq_len, batch_size);
     }
     run_state->hidden_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
     run_state->lm_head_output = (float*)malloc(sizeof(float) * total_seq_len * config->vocab_size);
