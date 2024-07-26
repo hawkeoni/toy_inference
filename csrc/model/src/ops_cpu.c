@@ -1,6 +1,7 @@
 #include "ops_cpu.h"
 #include <stdio.h>
 #include <omp.h>
+#include <memory.h>
 
 void embedding_op(float *embeddings, unsigned int *token_ids, float *output, unsigned int hidden_size, unsigned int total_seq_len) {
     for (unsigned int word_idx = 0; word_idx < total_seq_len; ++word_idx) {
@@ -211,16 +212,15 @@ void rotary_op_gen(float *sin, float *cos, float *x, float *output, unsigned int
 
 void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim) {
     // q, k, v - [total_seq_len, num_heads, head_dim]
-    // output - [total_seq_len, num_heads, head_dim]
     // sims - [total_seq_len, total_seq_len, num_heads]
     float row_sum, max_row_val;
     float head_dim_root = sqrtf(head_dim);
+    memset(sims, 0, sizeof(float) * total_seq_len * total_seq_len * num_heads);
     for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
         unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
         unsigned int seq_len = seq_lens[batch_idx];
         // matmul(q, k) - sims[i, j]
         for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
-            // TODO: Absolutely forgot about head_idx
             for (unsigned int i = start_position; i < end_position; ++i) {
                 for (unsigned int j = start_position; j <= i; ++j) {
                     for (unsigned int inner = 0; inner < head_dim; ++inner) {
@@ -229,7 +229,6 @@ void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, un
                         k[j * num_heads * head_dim + head_idx * head_dim + inner];
                     }
                     sims[i * total_seq_len * num_heads + j * num_heads + head_idx] /= head_dim_root;
-                    // sims[i * total_seq_len * num_heads + j * num_heads + head_idx] = expf(sims[i * total_seq_len * num_heads + j * num_heads + head_idx]);
                 }
             }
             // head head_idx was calculated, we can now calculate softmax
@@ -247,6 +246,50 @@ void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, un
                 for (unsigned int j = start_position; j <= i; ++j) {
                     sims[i * total_seq_len * num_heads + j * num_heads + head_idx] = expf(sims[i * total_seq_len * num_heads + j * num_heads + head_idx] - max_row_val) / row_sum;
                 }
+            }
+        }
+    }
+}
+
+void calculate_sims_gen(float *q, float *k, float *sims, unsigned int batch_size, unsigned int kv_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim, unsigned int generation_turn) {
+    // q - [batch, num_heads, head_dim]
+    // k, v - [kv_len, num_heads, head_dim]
+    // sims - [batch, kv_len, num_heads]
+    float row_sum, max_row_val;
+    float head_dim_root = sqrtf(head_dim);
+    memset(sims, 0, sizeof(float) * batch_size * kv_len * num_heads);
+    for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx] + generation_turn;
+        unsigned int seq_len = seq_lens[batch_idx];
+        // matmul(q, k) - sims[i, j]
+        for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
+            for (unsigned int j = start_position; j < end_position; ++j) {
+                    for (unsigned int inner = 0; inner < head_dim; ++inner) {
+                        sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] = q[batch_idx * num_heads * head_dim + head_idx * head_dim + inner] * 
+                        k[j * num_heads * head_dim + head_idx * head_dim + inner];
+                    }
+                sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] /= head_dim_root;
+            }
+            // head head_idx was calculated, we can now calculate softmax
+            row_sum = 0;
+            max_row_val = -1000.;
+            for (unsigned int j = start_position; j < end_position; ++j) {
+                // sims - [batch, kv_len, num_heads]
+                if (sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] > max_row_val) {
+                    max_row_val = sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx];
+                }
+            }
+            for (unsigned int j = start_position; j < end_position; ++j) {
+                // sims - [batch, kv_len, num_heads]
+                if (sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] > max_row_val) {
+                    max_row_val = sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx];
+                }
+            }
+            for (unsigned int j = start_position; j <= end_position; ++j) {
+                row_sum += expf(sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] - max_row_val);
+            }
+            for (unsigned int j = start_position; j <= end_position; ++j) {
+                    sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] = expf(sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] - max_row_val) / row_sum;
             }
         }
     }
