@@ -40,19 +40,25 @@ int main(void) {
     printf("Layernorm layer\n");
     TIME_FUNCTION_CALL_AVG(layernorm_op, model->final_layernorm->gamma, model->final_layernorm->gamma, model->final_layernorm->epsilon, run_state->embedded_tokens, run_state->decoder_run_states->pre_ln_result, model->config->hidden_size, input->total_seq_len);
     printf("Linear NxN \n");
-    // TIME_FUNCTION_CALL_AVG(linear_op_omp, attn->q_proj->weight, attn->q_proj->bias, run_state->embedded_tokens, decoder_state->query_states, attn->q_proj->fan_in, attn->q_proj->fan_out, input->total_seq_len);
     TIME_FUNCTION_CALL_AVG(linear_op_omp_simd, attn->q_proj->weight, attn->q_proj->bias, run_state->embedded_tokens, decoder_state->query_states, attn->q_proj->fan_in, attn->q_proj->fan_out, input->total_seq_len);
-    // TIME_FUNCTION_CALL_AVG(linear_op, attn->q_proj->weight, attn->q_proj->bias, run_state->embedded_tokens, decoder_state->query_states, attn->q_proj->fan_in, attn->q_proj->fan_out, input->total_seq_len);
-    // linear_op(attn->q_proj->weight, attn->q_proj->bias, run_state->embedded_tokens, decoder_state->query_states, attn->q_proj->fan_in, attn->q_proj->fan_out, input->total_seq_len);
-    // printf("Linear Nx4N\n");
-    // linear_op(decoder_layer->fc1->weight, decoder_layer->fc1->bias, decoder_state->pre_ln_result, decoder_state->ffn_intermediate, decoder_layer->fc1->fan_in, decoder_layer->fc1->fan_out, input->total_seq_len);
-    // printf("Linear 4NxN\n");
-    // linear_op(decoder_layer->fc2->weight, decoder_layer->fc2->bias, decoder_state->activations, decoder_state->ffn_result, decoder_layer->fc2->fan_in, decoder_layer->fc2->fan_out, input->total_seq_len);
-    // printf("Linear NxV\n");
-    // linear_op(model->lm_head->weight, model->lm_head->bias, run_state->hidden_states, run_state->lm_head_output, model->config->hidden_size, model->config->vocab_size, input->total_seq_len);
-    // layernorm_op(model->final_layernorm->gamma, model->final_layernorm->gamma, model->final_layernorm->eps, run_state->embedded_tokens, run_state->decoder_run_states->pre_ln_result, model->config->hidden_size, input->total_seq_len);
-    // embedding_op(model->embedding_layer->embeddings, input->token_ids, run_state->embedded_tokens, model->config->hidden_size, input->total_seq_len);
+    printf("Linear Nx4N\n");
+    TIME_FUNCTION_CALL_AVG(linear_op_omp_simd, decoder_layer->fc1->weight, decoder_layer->fc1->bias, decoder_state->pre_ln_result, decoder_state->ffn_intermediate, decoder_layer->fc1->fan_in, decoder_layer->fc1->fan_out, input->total_seq_len);
+    printf("Linear 4NxN\n");
+    TIME_FUNCTION_CALL_AVG(linear_op_omp_simd, decoder_layer->fc2->weight, decoder_layer->fc2->bias, decoder_state->activations, decoder_state->ffn_result, decoder_layer->fc2->fan_in, decoder_layer->fc2->fan_out, input->total_seq_len);
+    printf("Linear NxV\n");
+    TIME_FUNCTION_CALL_AVG(linear_op_omp_simd, model->lm_head->weight, model->lm_head->bias, run_state->hidden_states, run_state->lm_head_output, model->config->hidden_size, model->config->vocab_size, input->total_seq_len);
 
+
+    printf("Sum3 op\n");
+    TIME_FUNCTION_CALL_AVG(sum_3_op, run_state->embedded_tokens, decoder_state->ffn_result, decoder_state->dense_output, decoder_state->output, input->total_seq_len, decoder_layer->hidden_size);
+    printf("Gelu op\n");
+    TIME_FUNCTION_CALL_AVG(gelu_op, decoder_state->ffn_intermediate, decoder_state->activations, input->total_seq_len * decoder_layer->intermediate_dim);
+    printf("Rotary op\n");
+    TIME_FUNCTION_CALL_AVG(rotary_op, attn->remb->sin, attn->remb->cos, decoder_state->query_states, decoder_state->query_rot, attn->remb->rotary_dim, attn->head_dim, attn->num_heads, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens);
+    printf("Calculate sims\n");
+    TIME_FUNCTION_CALL_AVG(calculate_sims, decoder_state->query_rot, decoder_state->key_rot, decoder_state->sims, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens, attn->num_heads, attn->head_dim);
+    printf("Calculate weighted sum\n");
+    TIME_FUNCTION_CALL_AVG(calculate_weighted_sum, decoder_state->value_states, decoder_state->sims, decoder_state->attention_output, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens, attn->num_heads, attn->head_dim);
 
     return 0;
 }
