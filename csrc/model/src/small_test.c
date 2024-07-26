@@ -84,7 +84,7 @@ int main(int argc, char **argv)
     run_state = create_run_state(model->config, input->total_seq_len);
     time_t start, end;
     time(&start);
-    apply_model(model, run_state, input);
+    apply_model_prefill(model, run_state, input);
     time(&end);
     double dif = difftime (end,start);
     printf ("Your calculations took %.2lf seconds to run.\n", dif );

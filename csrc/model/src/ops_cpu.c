@@ -178,6 +178,37 @@ void rotary_op(float *sin, float *cos, float *x, float *output, unsigned int rot
     }
 }
 
+void rotary_op_gen(float *sin, float *cos, float *x, float *output, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int batch_size, unsigned int *seq_lens, unsigned int generation_turn) {
+    // remb cos sin - [max_position_embeddings, rotary_dim]
+    // x - [batch_size, num_heads, head_dim]
+    // rotary_dim <= head_dim
+    // add positions
+    // ERROR - embeddings applied along global dim instead of head dim
+    unsigned int half_rot_dim = rotary_dim / 2;
+    unsigned int global_idx;
+    unsigned int idx, rotated_idx;
+    memcpy(output, x, sizeof(float) * batch_size * num_heads * head_dim);
+    for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
+        unsigned int global_token_position = seq_lens[batch_idx] + generation_turn;
+        for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
+            for (unsigned int dim_idx = 0; dim_idx < rotary_dim; ++dim_idx) {
+                idx = batch_idx * num_heads * head_dim + head_idx * head_dim + dim_idx;
+
+                rotated_idx = batch_idx * num_heads * head_dim + head_idx * head_dim 
+                + (half_rot_dim + dim_idx) % rotary_dim;
+
+                output[idx] = x[idx] * cos[seq_lens[batch_idx + generation_turn] * rotary_dim + dim_idx];
+                if (dim_idx < half_rot_dim) {
+                    output[idx] -= x[rotated_idx] * sin[seq_lens[batch_idx + generation_turn] * rotary_dim + dim_idx];
+                }
+                else {
+                    output[idx] += x[rotated_idx] * sin[seq_lens[batch_idx + generation_turn] * rotary_dim + dim_idx];
+                }
+            }
+        }
+    }
+}
+
 void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim) {
     // q, k, v - [total_seq_len, num_heads, head_dim]
     // output - [total_seq_len, num_heads, head_dim]

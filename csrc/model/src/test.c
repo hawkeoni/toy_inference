@@ -77,7 +77,7 @@ int main(int argc, char **argv)
             input->token_ids[pos] = rand() % (model->config->vocab_size - 1);
         }
         run_state = create_run_state(model->config, input->total_seq_len);
-        apply_model(model, run_state, input);
+        apply_model_prefill(model, run_state, input);
         sprintf(filename, "test_data/test_%d", test_case_idx);
         mkdir(filename, 0777);
 

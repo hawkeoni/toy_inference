@@ -17,6 +17,7 @@ struct {
     unsigned int max_position_embeddings;
     unsigned int rotary_dim;
     unsigned int head_dim;
+    unsigned int eos_token_id;
 } PhiConfig;
 
 typedef 
@@ -113,12 +114,13 @@ typedef struct {
 typedef struct {
     unsigned int batch_size;
     unsigned int total_seq_len;
+    unsigned int tokens_to_generate;
     unsigned int *token_ids;
     unsigned int *seq_starts;
     unsigned int *seq_lens;
 } PhiModelInput;
 
-void apply_model(PhiModel *model, PhiModelRunState *state, PhiModelInput *input);
+void apply_model_prefill(PhiModel *model, PhiModelRunState *state, PhiModelInput *input);
 
 
 #endif

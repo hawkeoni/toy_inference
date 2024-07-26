@@ -59,7 +59,7 @@ EmbeddingLayer* create_embedding_layer(float *weight, unsigned int vocab_size, u
     EmbeddingLayer *layer = (EmbeddingLayer*)malloc(sizeof(EmbeddingLayer));
     layer->embeddings = weight;
     layer->vocab_size = vocab_size;
-    layer->hidden_size =hidden_size;
+    layer->hidden_size = hidden_size;
     return layer;
 }
 
