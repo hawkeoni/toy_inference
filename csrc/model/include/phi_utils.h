@@ -9,7 +9,6 @@
 
 PhiModel* read_model(char *filename);
 PhiModelRunState* create_run_state(PhiConfig* config, PhiModelInput *input);
-PhiModelInput* create_input();
 float* read_vector(char* filename, unsigned int size);
 
 
