@@ -11,16 +11,17 @@
 int main(int argc, char **argv)
 {
     // srand(0);
-    if (argc < 2) {
-        printf("You should provide a model as the first argument\n");
-        return 0;
-    }
-    PhiModel *model = read_model(argv[1]);
+    // if (argc < 2) {
+    //     printf("You should provide a model as the first argument\n");
+    //     return 0;
+    // }
+    char *model_name = "/Users/hawkeoni/projects/inference_server/csrc/model/small_test_model.bin";
+    PhiModel *model = read_model(model_name);
     PhiModelRunState *run_state;
     PhiModelInput *input = (PhiModelInput *)malloc(sizeof(PhiModelInput));
     input->batch_size = 1;
     input->total_seq_len = 10;
-    input->tokens_to_generate = 2;
+    input->tokens_to_generate = 10;
     input->seq_starts = (unsigned int *)malloc(sizeof(unsigned int) * 1);
     input->seq_lens = (unsigned int *)malloc(sizeof(unsigned int) * 1);
     input->seq_starts[0] = 0;

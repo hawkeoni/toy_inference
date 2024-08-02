@@ -11,11 +11,11 @@ void gelu_op(float *x, float *output, unsigned int size);
 void gelu_op_inplace(float *x, unsigned int size);
 void layernorm_op(float *gamma, float *beta, float epsilon, float *x, float *output, unsigned int hidden_size, unsigned int total_seq_len);
 void rotary_op(float *sin, float *cos, float *x, float *output, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int total_seq_len, unsigned int batch_size, unsigned int *seq_starts, unsigned int *seq_lens);
-void rotary_op_gen(float *sin, float *cos, float *x, float *output, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int batch_size, unsigned int *seq_lens, unsigned int generation_turn);
+void rotary_op_gen(float *sin, float *cos, float *x, float *output, unsigned int rotary_dim, unsigned int head_dim, unsigned int num_heads, unsigned int batch_size, unsigned int *seq_lens);
 void calculate_sims(float *q, float *k, float *sims, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim);
-void calculate_sims_gen(float *q, float *k, float *sims, unsigned int batch_size, unsigned int kv_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim, unsigned int generation_turn);
+void calculate_sims_gen(float *q, float *k, float *sims, unsigned int batch_size, unsigned int kv_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim);
 void calculate_weighted_sum(float *v, float *sims, float *output, unsigned int batch_size, unsigned int total_seq_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim);
-void calculate_weighted_sum_gen(float *v, float *sims, float *output, unsigned int batch_size, unsigned int v_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim, unsigned int generation_turn);
+void calculate_weighted_sum_gen(float *v, float *sims, float *output, unsigned int batch_size, unsigned int v_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim);
 
 void linear_op_omp(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len);
 void linear_op_omp_simd(float *weight, float *bias, float *x, float *output, unsigned int fan_in, unsigned int fan_out, unsigned int total_seq_len);

@@ -91,6 +91,7 @@ typedef struct {
     float *query_states, *key_states, *value_states;
     float *query_rot;
     float *key_rot;
+    float *key_rot_gen;
     float *sims;
     float *attention_output;
     float *ffn_intermediate;
@@ -98,13 +99,11 @@ typedef struct {
     float *ffn_result;
     float *dense_output;
     float *output;
-
+    float *k_cache;
+    float *v_cache;
     float *gen_query_states;
     float *gen_key_states;
     float *gen_value_states;
-
-
-
 } PhiDecoderRunState;
 
 typedef struct {
