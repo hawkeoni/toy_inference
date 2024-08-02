@@ -315,14 +315,13 @@ void calculate_weighted_sum_gen(float *v, float *sims, float *output, unsigned i
     memset(output, 0, batch_size * num_heads * head_dim * sizeof(float));
     for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
         unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
-        unsigned int seq_len = seq_lens[batch_idx];
-        // sims - [batch, v_len, head_dim]
+        // sims - [batch, v_len, num_heads]
         // v - [v_len, num_heads, head_dim]
         // output - [batch, num_heads, head_dim]
         for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
             for (unsigned int j = start_position; j < end_position; ++j) {
                 for (unsigned int inner = 0; inner < head_dim; ++inner) {
-                    output[batch_idx * num_heads * head_dim + head_idx * head_dim + inner] += sims[batch_idx * v_len * head_dim + j * head_dim + head_idx] * v[j * num_heads * head_dim + head_idx * head_dim + inner];
+                    output[batch_idx * num_heads * head_dim + head_idx * head_dim + inner] += sims[batch_idx * v_len * num_heads + j * num_heads + head_idx] * v[j * num_heads * head_dim + head_idx * head_dim + inner];
                 }
             }
         }
