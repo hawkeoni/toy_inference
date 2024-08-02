@@ -24,7 +24,7 @@ void fill_decoder_run_state(PhiDecoderRunState *decoder_state, PhiConfig *config
     decoder_state->k_cache = (float*)malloc(sizeof(float) * (total_seq_len + input->batch_size * input->tokens_to_generate) * config->hidden_size);
     decoder_state->v_cache = (float*)malloc(sizeof(float) * (total_seq_len + input->batch_size * input->tokens_to_generate) * config->hidden_size);
     decoder_state->value_states = (float*)malloc(sizeof(float) * total_seq_len * config->hidden_size);
-    decoder_state->sims = (float*)malloc(sizeof(float) * (total_seq_len + tokens_to_generate) * (total_seq_len + tokens_to_generate) * config->num_attention_heads);
+    decoder_state->sims = (float*)malloc(sizeof(float) * (total_seq_len + tokens_to_generate * batch_size) * (total_seq_len + tokens_to_generate * batch_size) * config->num_attention_heads);
     decoder_state->gen_query_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
     decoder_state->gen_key_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);
     decoder_state->gen_value_states = (float*)malloc(sizeof(float) * batch_size * config->hidden_size);

@@ -112,16 +112,17 @@ void apply_model_generate(PhiModel *model, PhiModelRunState *state, PhiModelInpu
         rotary_op_gen(attn->remb->sin, attn->remb->cos, decoder_state->gen_query_states, decoder_state->query_rot, attn->remb->rotary_dim, model->config->head_dim, model->config->num_attention_heads, input->batch_size, input->seq_lens);
         rotary_op_gen(attn->remb->sin, attn->remb->cos, decoder_state->gen_key_states, decoder_state->key_rot_gen, attn->remb->rotary_dim, model->config->head_dim, model->config->num_attention_heads, input->batch_size, input->seq_lens);
         // 1. Застрайдить k_cache, v_cache и всунуть между ними последние значения key_rot, gen_value_states
-        stride_kv(decoder_state->key_states, decoder_state->key_rot, decoder_state->k_cache, input->batch_size, decoder_layer->hidden_size, input->seq_starts, input->seq_lens);
+        stride_kv(decoder_state->key_rot, decoder_state->key_rot_gen, decoder_state->k_cache, input->batch_size, decoder_layer->hidden_size, input->seq_starts, input->seq_lens);
         stride_kv(decoder_state->value_states, decoder_state->gen_value_states, decoder_state->v_cache, input->batch_size, decoder_layer->hidden_size, input->seq_starts, input->seq_lens);
         // 2. Увеличить total_seq_len на batch_size, а seq_lens все на 1 (seq_starts тоже все на batch_idx)
         inc_input(input);
+        // TODO: V STATES MUST BECOME V_CACHE
 
         // Теперь у нас есть новый total_seq_len и длины, соответственно
         // k_cache, v_cache - [total_seq_len, hidden_dim]
         // query_rot - [batch_size, seq_len]
         // Нужно:
-        // 3. Посчитать similarity query_rot к k_cache - [batch_size, total_seq_len]
+        // 3. Посчитать similarity query_rot к k_cache - [batch_size, total_seq_len, head_dim]
         calculate_sims_gen(decoder_state->query_rot, decoder_state->k_cache, decoder_state->sims, input->batch_size, input->total_seq_len, input->seq_starts, input->seq_lens, model->config->num_attention_heads, model->config->head_dim);
         // calculate_sims_gen(decoder_state->query_rot, decoder_state->k_cache, decoder_state->sims, input->batch_size, input->total_seq_len + input->batch_size * generation_offset, input->seq_starts, input->seq_lens, model->config->num_attention_heads, model->config->head_dim, generation_offset);
         // 4. Посчитать weighted_sum - [batch_size, hidden_dim]

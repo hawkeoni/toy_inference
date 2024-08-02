@@ -256,13 +256,13 @@ void calculate_sims_gen(float *q, float *k, float *sims, unsigned int batch_size
     float head_dim_root = sqrtf(head_dim);
     memset(sims, 0, sizeof(float) * batch_size * kv_len * num_heads);
     for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
-        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx] - 1;
+        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
         unsigned int seq_len = seq_lens[batch_idx];
         // matmul(q, k) - sims[i, j]
         for (unsigned int head_idx = 0; head_idx < num_heads; ++head_idx) {
             for (unsigned int j = start_position; j < end_position; ++j) {
                     for (unsigned int inner = 0; inner < head_dim; ++inner) {
-                        sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] = q[batch_idx * num_heads * head_dim + head_idx * head_dim + inner] * 
+                        sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] += q[batch_idx * num_heads * head_dim + head_idx * head_dim + inner] * 
                         k[j * num_heads * head_dim + head_idx * head_dim + inner];
                     }
                 sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] /= head_dim_root;
@@ -282,10 +282,10 @@ void calculate_sims_gen(float *q, float *k, float *sims, unsigned int batch_size
                     max_row_val = sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx];
                 }
             }
-            for (unsigned int j = start_position; j <= end_position; ++j) {
+            for (unsigned int j = start_position; j < end_position; ++j) {
                 row_sum += expf(sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] - max_row_val);
             }
-            for (unsigned int j = start_position; j <= end_position; ++j) {
+            for (unsigned int j = start_position; j < end_position; ++j) {
                     sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] = expf(sims[batch_idx * kv_len * num_heads + j * num_heads + head_idx] - max_row_val) / row_sum;
             }
         }
@@ -312,8 +312,9 @@ void calculate_weighted_sum(float *v, float *sims, float *output, unsigned int b
 }
 
 void calculate_weighted_sum_gen(float *v, float *sims, float *output, unsigned int batch_size, unsigned int v_len, unsigned int *seq_starts, unsigned int *seq_lens, unsigned int num_heads, unsigned int head_dim) {
+    memset(output, 0, batch_size * num_heads * head_dim * sizeof(float));
     for (unsigned int batch_idx = 0; batch_idx < batch_size; ++batch_idx) {
-        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx] - 1;
+        unsigned int start_position = seq_starts[batch_idx], end_position = seq_starts[batch_idx] + seq_lens[batch_idx];
         unsigned int seq_len = seq_lens[batch_idx];
         // sims - [batch, v_len, head_dim]
         // v - [v_len, num_heads, head_dim]
