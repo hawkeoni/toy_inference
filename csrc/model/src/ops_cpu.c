@@ -107,7 +107,7 @@ void linear_op_omp_simd(float *weight, float *bias, float *x, float *output, uns
 
 void sum_3_op(float *pre_ln_x, float *ffn_result, float *attention_output, float *output, unsigned int total_seq_len, unsigned int hidden_size) {
     for (unsigned int idx = 0; idx < total_seq_len * hidden_size; ++idx) {
-        output[idx] += pre_ln_x[idx] + ffn_result[idx] + attention_output[idx];
+        output[idx] = pre_ln_x[idx] + ffn_result[idx] + attention_output[idx];
     }
 }
 
